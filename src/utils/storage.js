@@ -1,26 +1,18 @@
-// UPDATED TO V2 TO FORCE A RESET
 const STORAGE_KEY = 'IFS_USER_DATA_V2';
 
-const DEFAULT_USER = {
-  username: 'John Tang',
-  vipLevel: 'BRONZE',
-  vipPoints: 0,
-  bankroll: 1000,
-  gamesPlayed: 0,
-  biggestWin: 0,
-  avatar: '🐶', // Beta is here!
-};
+// FIX: Default is now null (Guest), not a specific person
+const DEFAULT_USER = null;
 
 export const loadUserData = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return { ...DEFAULT_USER, ...JSON.parse(saved) };
+      return JSON.parse(saved);
     }
   } catch (e) {
     console.error('Failed to load save data', e);
   }
-  return DEFAULT_USER;
+  return DEFAULT_USER; // This will now return null if storage is empty
 };
 
 export const saveUserData = (data) => {

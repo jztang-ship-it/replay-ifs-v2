@@ -4,328 +4,286 @@ import { getHistoricalPerformance } from '../engine/historicalRNG';
 import PlayerCard from '../components/game/PlayerCard';
 import MoneyRain from '../components/effects/MoneyRain';
 import { GAME_CONFIG } from '../utils/constants';
-import { useCountUp } from '../hooks/useCountUp';
+
+// SIMPLIFIED ROLLING NUMBER FOR HUD
+const HudRollingNumber = ({ value }) => {
+  const [display, setDisplay] = useState(value);
+  
+  useEffect(() => {
+    let start = display;
+    const end = value;
+    if (start === end) return;
+    
+    // Quick 500ms roll
+    const duration = 500;
+    let startTime = null;
+    
+    const animate = (currentTime) => {
+      if (!startTime) startTime = currentTime;
+      const progress = Math.min((currentTime - startTime) / duration, 1);
+      setDisplay(Math.floor(start + (end - start) * progress));
+      if (progress < 1) requestAnimationFrame(animate);
+      else setDisplay(end);
+    };
+    requestAnimationFrame(animate);
+  }, [value]);
+
+  return <>{display.toLocaleString()}</>;
+};
 
 export default function Play({ userBankroll, onBankrollUpdate }) {
   const [hand, setHand] = useState([]);
   const [heldIndices, setHeldIndices] = useState([]); 
-  const [results, setResults] = useState({});
-  const [errorMsg, setErrorMsg] = useState(null);
-  
-  // --- STATE ---
+  const [results, setResults] = useState({}); 
   const [betMultiplier, setBetMultiplier] = useState(1);
   const [currentBetAmount, setCurrentBetAmount] = useState(0); 
   const [payoutResult, setPayoutResult] = useState(null); 
   const [showEffects, setShowEffects] = useState(false);
-
-  // Use the bankroll passed from App.js
-  const displayBankroll = useCountUp(userBankroll, 1000, true);
-
-  const [cardRotations, setCardRotations] = useState(new Array(GAME_CONFIG.HAND_SIZE).fill(1)); 
+  const [cardRotations, setCardRotations] = useState(new Array(5).fill(1)); 
   const [gamePhase, setGamePhase] = useState('START'); 
   const [sequencerIndex, setSequencerIndex] = useState(-1);
 
-  // --- SEQUENCERS ---
-  useEffect(() => {
-    if (gamePhase === 'DEALING') {
-      if (sequencerIndex < GAME_CONFIG.HAND_SIZE) {
-        const timer = setTimeout(() => {
-          setCardRotations(prev => {
-            const next = [...prev];
-            next[sequencerIndex] += 1;
-            return next;
-          });
-          setSequencerIndex(prev => prev + 1);
-        }, 150);
-        return () => clearTimeout(timer);
-      } else {
-        const timer = setTimeout(() => setGamePhase('DEALT'), 500);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [gamePhase, sequencerIndex]);
-
-  useEffect(() => {
-    if (gamePhase === 'DISCARDING') {
-      setCardRotations(prev => prev.map((rot, i) => heldIndices.includes(i) ? rot : rot + 1));
-      const timer = setTimeout(() => setGamePhase('DRAWING'), 800);
-      return () => clearTimeout(timer);
-    }
-    if (gamePhase === 'DRAWING') {
-      performDataSwap();
-      setGamePhase('REVEALING');
-      setSequencerIndex(0);
-    }
-    if (gamePhase === 'REVEALING') {
-      if (sequencerIndex < GAME_CONFIG.HAND_SIZE) {
-        const timer = setTimeout(() => {
-          setCardRotations(prev => {
-            const next = [...prev];
-            if (!heldIndices.includes(sequencerIndex)) next[sequencerIndex] += 1;
-            return next;
-          });
-          setSequencerIndex(prev => prev + 1);
-        }, 600);
-        return () => clearTimeout(timer);
-      } else {
-        const timer = setTimeout(() => setGamePhase('END'), 500);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [gamePhase, sequencerIndex]);
-
-  useEffect(() => {
-    if (gamePhase === 'RESETTING') {
-      setCardRotations(prev => prev.map(rot => (rot % 2 === 0 ? rot + 1 : rot)));
-      const timer = setTimeout(() => handleInitialDeal(), 800);
-      return () => clearTimeout(timer);
-    }
-  }, [gamePhase]);
-
-  // --- PAYOUT LOGIC ---
-  useEffect(() => {
-    if (gamePhase === 'END') {
-      const sequenceTimer = setTimeout(() => {
-        const totalScore = Object.values(results).reduce((sum, r) => sum + parseFloat(r.score), 0);
-        calculatePayout(totalScore);
-      }, 2000); 
-      return () => clearTimeout(sequenceTimer);
-    }
-  }, [gamePhase]);
-
-  const calculatePayout = (score) => {
-    const tiers = GAME_CONFIG.PAYOUT_TIERS || [];
-    const tier = [...tiers].sort((a,b) => b.min - a.min).find(t => score >= t.min);
-    const activeTier = tier || { label: 'BETTER LUCK NEXT TIME', min: 0, multiplier: 0, color: 'text-red-500', emoji: '😢' };
-    
-    const winAmount = currentBetAmount * activeTier.multiplier;
-
-    setPayoutResult({
-      label: activeTier.label,
-      description: activeTier.description,
-      amount: winAmount,
-      color: activeTier.color,
-      emoji: activeTier.emoji
-    });
-
-    setShowEffects(true);
-
-    if (winAmount > 0) {
-      setTimeout(() => {
-        // UPDATE GLOBAL BANKROLL VIA PROP
-        onBankrollUpdate(winAmount);
-      }, 1000); 
-    }
-  };
-
   // --- ACTIONS ---
   const handleInitialDeal = () => {
-    const totalBet = GAME_CONFIG.BASE_BET * betMultiplier;
-    
-    if (userBankroll < totalBet) {
-      setErrorMsg("INSUFFICIENT FUNDS");
-      return;
-    }
-
-    // UPDATE GLOBAL BANKROLL VIA PROP (Deduct Bet)
-    onBankrollUpdate(-totalBet);
-    
+    const totalBet = (GAME_CONFIG?.BASE_BET || 10) * betMultiplier;
+    onBankrollUpdate(-totalBet); 
     setCurrentBetAmount(totalBet); 
     setPayoutResult(null);
     setShowEffects(false);
     
-    const newCards = dealExactBudgetHand(GAME_CONFIG.HAND_SIZE, GAME_CONFIG.SALARY_CAP, []);
+    const newCards = dealExactBudgetHand(5, 15, []);
     setHand(newCards);
     setHeldIndices([]); 
-    setResults({}); 
+    
+    const newResults = {};
+    newCards.forEach((player, index) => {
+      newResults[`${player.id}-${index}`] = getHistoricalPerformance(player);
+    });
+    setResults(newResults);
+
     setSequencerIndex(0);
     setGamePhase('DEALING'); 
-    setErrorMsg(null);
   };
 
   const handleReplay = () => { setGamePhase('RESETTING'); };
   
   const toggleHold = (index) => {
     if (gamePhase !== 'DEALT') return;
-    setErrorMsg(null);
     if (heldIndices.includes(index)) {
       setHeldIndices(heldIndices.filter(i => i !== index));
-      return;
+    } else {
+      setHeldIndices([...heldIndices, index]);
     }
-    const newHeldIndices = [...heldIndices, index];
-    const cost = newHeldIndices.reduce((sum, i) => sum + hand[i].cost, 0);
-    const rem = GAME_CONFIG.SALARY_CAP - cost;
-    const empty = GAME_CONFIG.HAND_SIZE - newHeldIndices.length;
-    if (rem < empty * 1) { setErrorMsg("Not enough budget."); return; }
-    if (rem > empty * 5) { setErrorMsg("Too much budget."); return; }
-    setHeldIndices(newHeldIndices);
   };
+
   const handleDrawRequest = () => { setGamePhase('DISCARDING'); };
   
   const performDataSwap = () => {
     const heldCards = heldIndices.map(i => hand[i]);
     const heldIdsList = heldCards.map(c => c.id);
-    const slots = GAME_CONFIG.HAND_SIZE - heldCards.length;
-    const rem = GAME_CONFIG.SALARY_CAP - heldCards.reduce((sum, c) => sum + c.cost, 0);
-    const replacements = dealExactBudgetHand(slots, rem, heldIdsList);
+    const slotsNeeded = 5 - heldCards.length;
+    const currentHeldCost = heldCards.reduce((sum, c) => sum + c.cost, 0);
+    const replacements = dealExactBudgetHand(slotsNeeded, 15 - currentHeldCost, heldIdsList);
+    
     let rIdx = 0;
-    const finalHand = hand.map((card, index) => heldIndices.includes(index) ? card : replacements[rIdx++]);
-    setHand(finalHand);
-    const newResults = {};
-    finalHand.forEach((player, i) => {
-      const rawPerf = getHistoricalPerformance(player);
-      newResults[`${player.id}-${i}`] = { ...rawPerf, date: `${rawPerf.date}, 2023` };
+    const finalHand = hand.map((card, index) => {
+      if (heldIndices.includes(index)) return card;
+      return replacements[rIdx++];
     });
-    setResults(newResults);
+    
+    setHand(finalHand);
+
+    const nextResults = {};
+    finalHand.forEach((player, index) => {
+       const key = `${player.id}-${index}`;
+       if (heldIndices.includes(index)) nextResults[key] = results[key];
+       else nextResults[key] = getHistoricalPerformance(player);
+    });
+    setResults(nextResults);
+    setGamePhase('REVEALING');
+    setSequencerIndex(0);
   };
 
-  const currentHeldCost = heldIndices.reduce((sum, i) => sum + (hand[i]?.cost || 0), 0);
-  const rawTotalScore = Object.values(results).reduce((sum, r) => sum + parseFloat(r.score), 0);
-  const animatedTotalScore = useCountUp(rawTotalScore, 2000, gamePhase === 'END');
+  const calculateTotalScore = () => {
+    if (!hand.length) return 0;
+    if (gamePhase !== 'END') return 0; 
+    let total = 0;
+    hand.forEach((player, index) => {
+      const res = results[`${player.id}-${index}`];
+      if (res && res.score) total += parseFloat(res.score);
+    });
+    return Math.round(total * 10) / 10;
+  };
+
+  const rawTotalScore = calculateTotalScore();
+
+  // --- SEQUENCER ---
+  useEffect(() => {
+    let timer;
+    if (gamePhase === 'DEALING') {
+      if (sequencerIndex < 5) {
+        timer = setTimeout(() => {
+          setCardRotations(prev => { const n=[...prev]; n[sequencerIndex]+=1; return n; });
+          setSequencerIndex(p => p+1);
+        }, 150);
+      } else { timer = setTimeout(() => setGamePhase('DEALT'), 500); }
+    }
+    if (gamePhase === 'DISCARDING') {
+      setCardRotations(prev => prev.map((rot, i) => heldIndices.includes(i) ? rot : rot + 1));
+      timer = setTimeout(() => setGamePhase('DRAWING'), 800);
+    }
+    if (gamePhase === 'DRAWING') { performDataSwap(); }
+    if (gamePhase === 'REVEALING') {
+      if (sequencerIndex < 5) {
+        timer = setTimeout(() => {
+          setCardRotations(prev => { 
+            const n = [...prev]; 
+            if (!heldIndices.includes(sequencerIndex)) n[sequencerIndex] += 1; 
+            return n; 
+          });
+          setSequencerIndex(p => p+1);
+        }, 600);
+      } else { timer = setTimeout(() => setGamePhase('END'), 500); }
+    }
+    if (gamePhase === 'RESETTING') {
+      setCardRotations(prev => prev.map(rot => (rot % 2 === 0 ? rot + 1 : rot)));
+      timer = setTimeout(() => handleInitialDeal(), 800);
+    }
+    if (gamePhase === 'END') {
+      let total = 0;
+      hand.forEach((player, index) => {
+        const res = results[`${player.id}-${index}`];
+        if (res && res.score) total += parseFloat(res.score);
+      });
+      total = Math.round(total * 10) / 10;
+      timer = setTimeout(() => calculatePayout(total), 500);
+    }
+    return () => clearTimeout(timer);
+  }, [gamePhase, sequencerIndex]);
+
+  const calculatePayout = (score) => {
+    const tiers = GAME_CONFIG?.PAYOUT_TIERS || [];
+    const tier = [...tiers].sort((a,b) => b.min - a.min).find(t => score >= t.min);
+    const activeTier = tier || { label: 'LOSS', min: 0, multiplier: 0, color: 'text-slate-500', emoji: '😢' };
+    const winAmount = currentBetAmount * activeTier.multiplier;
+    
+    setPayoutResult({ 
+      label: activeTier.label, 
+      amount: winAmount, 
+      color: activeTier.color, 
+      emoji: activeTier.emoji,
+      multiplier: activeTier.multiplier 
+    });
+    
+    setShowEffects(true);
+    if (winAmount > 0) onBankrollUpdate(winAmount); 
+  };
 
   const getVisibleResult = (index) => {
-     if (gamePhase === 'END' || gamePhase === 'RESETTING') return results[`${hand[index]?.id}-${index}`];
-     if (gamePhase === 'REVEALING') return results[`${hand[index]?.id}-${index}`];
+     if (gamePhase === 'END') return results[`${hand[index]?.id}-${index}`];
+     if (gamePhase === 'REVEALING' && index < sequencerIndex) return results[`${hand[index]?.id}-${index}`];
      return null;
   };
   const getIsRolling = (index) => {
-    if (gamePhase === 'END' || gamePhase === 'RESETTING') return true;
-    if (gamePhase === 'REVEALING') return index < sequencerIndex;
+    if (gamePhase === 'END') return false;
+    if (gamePhase === 'REVEALING' && index >= sequencerIndex) return true;
     return false;
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950 font-sans overflow-hidden">
-      
+    <div className="absolute inset-0 bg-slate-950 font-sans overflow-hidden flex flex-col justify-between">
       {showEffects && payoutResult && <MoneyRain tierLabel={payoutResult.label} />}
-
-      {/* 1. HEADER */}
-      <div className="fixed top-0 left-0 w-full h-[60px] pl-16 pr-4 flex items-center justify-between bg-slate-950 border-b border-slate-800 z-50 shadow-md">
-        <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400 tracking-tighter italic">
-          IFS
-        </h1>
-        <div className="flex items-center gap-6">
-            <div className="flex flex-col items-end">
-                <span className="text-[10px] text-slate-400 font-bold tracking-widest">BANK</span>
-                <span className={`text-lg font-mono font-black ${userBankroll < 100 ? 'text-red-500' : 'text-green-400'}`}>
-                    ${displayBankroll}
-                </span>
-            </div>
-             <div className="flex flex-col items-end border-l border-slate-700 pl-4">
-                <span className="text-[10px] text-slate-400 font-bold tracking-widest">BET</span>
-                <span className="text-lg font-mono font-black text-white">
-                    ${gamePhase === 'START' || gamePhase === 'END' ? GAME_CONFIG.BASE_BET * betMultiplier : currentBetAmount}
-                </span>
-            </div>
-        </div>
+      
+      {/* HUD HEADER */}
+      <div className="fixed top-0 right-0 z-[110] h-20 flex items-center pr-6 gap-6 pointer-events-none">
+         <div className="flex flex-col items-end">
+           <span className="text-[9px] text-slate-400 font-bold tracking-widest">BANK</span>
+           <span className={`font-mono font-black text-lg ${userBankroll < 100 ? 'text-red-500' : 'text-green-400'}`}>
+             {/* Key ensures re-render on value change */}
+             $<HudRollingNumber key={userBankroll} value={userBankroll} />
+           </span>
+         </div>
+         <div className="flex flex-col items-end border-l border-white/10 pl-4">
+           <span className="text-[9px] text-slate-400 font-bold tracking-widest">BET</span>
+           <span className="text-white font-mono font-black text-lg">
+             ${gamePhase === 'START' || gamePhase === 'END' ? (GAME_CONFIG?.BASE_BET || 10) * betMultiplier : currentBetAmount}
+           </span>
+         </div>
       </div>
 
-      {/* 2. CARD ARENA */}
-      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-[55%] w-full max-w-6xl flex justify-center items-center gap-2 p-2 z-10">
-        
-        {/* RESULT OVERLAY */}
-        {gamePhase === 'END' && payoutResult && (
-           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 flex flex-col items-center justify-center pointer-events-none w-full animate-in zoom-in duration-300">
-              <div className="bg-slate-900/95 backdrop-blur-xl border-2 border-white/20 p-8 rounded-2xl shadow-2xl flex flex-col items-center text-center">
-                  <div className="text-6xl mb-2">{payoutResult.emoji}</div>
-                  <div className={`text-4xl font-black italic mb-1 ${payoutResult.color} drop-shadow-md uppercase tracking-tight`}>
-                      {payoutResult.label}
-                  </div>
-                  <div className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-4">
-                      {payoutResult.description}
-                  </div>
-                  <div className="text-white text-5xl font-mono font-black bg-black/30 px-6 py-2 rounded-xl border border-white/10">
-                      {payoutResult.amount > 0 ? `+$${payoutResult.amount}` : `-$${currentBetAmount}`}
-                  </div>
-              </div>
-           </div>
-        )}
-
-        {hand.length === 0 ? (
-           Array.from({ length: GAME_CONFIG.HAND_SIZE }).map((_, index) => (
-             <PlayerCard key={index} rotation={1} player={{}} />
-           ))
-        ) : (
-          hand.map((player, index) => {
-            const isHeld = heldIndices.includes(index);
-            return (
-              <PlayerCard
-                key={index} 
-                player={player}
-                isHeld={isHeld}
-                onToggle={() => toggleHold(index)}
-                finalScore={getVisibleResult(index)}
-                rotation={cardRotations[index]}
-                isRolling={getIsRolling(index)}
+      {/* CARDS: MOVED DOWN to pt-36 */}
+      <div className="w-full flex justify-center items-start pt-36 z-10 pointer-events-none flex-1">
+        <div className="flex justify-center items-center gap-4 max-w-7xl w-full px-4 pointer-events-auto">
+          {hand.length === 0 ? Array.from({length:5}).map((_,i)=><PlayerCard key={i} rotation={1} player={{}}/>) : 
+            hand.map((p,i) => (
+              <PlayerCard 
+                key={`${p.id}-${i}`} 
+                player={p} 
+                isHeld={heldIndices.includes(i)} 
+                onToggle={()=>toggleHold(i)} 
+                finalScore={getVisibleResult(i)} 
+                rotation={cardRotations[i]} 
+                isRolling={getIsRolling(i)} 
               />
-            );
-          })
-        )}
+            ))
+          }
+        </div>
       </div>
 
-      {/* 3. FOOTER STACK */}
-      <div className="fixed bottom-0 left-0 w-full z-20 bg-slate-950 border-t border-slate-900 shadow-2xl">
-        
-        {/* A. SCOREBOARD */}
-        <div className={`h-12 w-full bg-slate-900 flex flex-col items-center justify-center transition-all duration-500 ${gamePhase === 'END' ? 'opacity-100' : 'opacity-0'}`}>
-           <div className="flex items-center gap-2">
-                <span className="text-3xl font-black text-white drop-shadow-lg leading-none">
-                    {animatedTotalScore}
-                </span>
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest pt-2">FP</span>
-           </div>
-        </div>
-
-        {/* B. CONTROL DECK */}
-        <div className="w-full flex flex-col items-center justify-center pt-2 pb-12 bg-slate-950 relative">
-          
-          {/* BET SELECTOR */}
-          {(hand.length === 0 || gamePhase === 'END') && (
-            <div className="flex gap-2 mb-3">
-              {GAME_CONFIG.BET_MULTIPLIERS.map(m => (
-                <button
-                  key={m}
-                  onClick={() => setBetMultiplier(m)}
-                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
-                    betMultiplier === m 
-                      ? 'bg-blue-600 text-white shadow-lg scale-110' 
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                  }`}
-                >
-                  {m}x
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* STATUS OVERLAY */}
-          {(gamePhase === 'DEALT' || gamePhase === 'DRAWING') && (
-            <div className="absolute top-[-30px] flex gap-4 text-[10px] bg-slate-800 text-white px-4 py-1.5 rounded-full font-bold shadow-lg border border-slate-700">
-               <span className="text-slate-300">HELD: <span className="text-white">${currentHeldCost}</span></span>
-               <span className="text-green-400">MAX: ${GAME_CONFIG.SALARY_CAP}</span>
-               {errorMsg && <span className="text-red-500 ml-2 animate-pulse">{errorMsg}</span>}
-             </div>
-          )}
-
-          {/* BUTTONS */}
-          {hand.length === 0 && (
-            <button onClick={handleInitialDeal} className="w-72 py-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-black rounded-full text-xl shadow-lg active:scale-95 transition-all uppercase tracking-wide border-b-4 border-green-800 active:border-b-0 active:translate-y-1">
-              DEAL HAND (-${GAME_CONFIG.BASE_BET * betMultiplier})
+      {/* FOOTER CONTROLS - COMPRESSED AND TIGHT */}
+      <div className="w-full bg-slate-950 border-t border-slate-900 pb-8 pt-4 flex flex-col items-center z-50">
+         
+         {/* RESULT / SCORE BOX */}
+         <div className="mb-4 h-16 flex items-center justify-center">
+            {gamePhase === 'END' && payoutResult ? (
+              <div className="bg-slate-900/90 backdrop-blur-xl px-6 py-2 rounded-2xl border border-white/20 shadow-2xl animate-in zoom-in flex items-center gap-6">
+                 <div className="flex flex-col items-center">
+                    <span className="text-3xl">{payoutResult.emoji}</span>
+                 </div>
+                 <div className="flex flex-col items-start border-l border-white/10 pl-4">
+                    <div className={`text-xl font-black ${payoutResult.color} uppercase leading-none mb-1`}>
+                       {payoutResult.label} <span className="text-white/50 text-sm">({payoutResult.multiplier}x)</span>
+                    </div>
+                    <div className="text-white font-mono font-bold text-xs">
+                       {payoutResult.amount > 0 ? `WON $${payoutResult.amount}` : `LOST $${currentBetAmount}`}
+                    </div>
+                 </div>
+                 {/* COMBINED TOTAL FP */}
+                 <div className="flex flex-col items-end border-l border-white/10 pl-4">
+                     <span className="text-4xl font-black text-white leading-none">{rawTotalScore}</span>
+                     <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Total FP</span>
+                 </div>
+              </div>
+            ) : (
+               <div className={`transition-opacity duration-300 ${rawTotalScore > 0 ? 'opacity-100' : 'opacity-0'} flex items-center gap-2 bg-slate-900/50 px-4 py-1 rounded-full border border-white/5`}>
+                 <span className="text-3xl font-black text-white">{rawTotalScore}</span>
+                 <span className="text-[10px] text-slate-400 font-bold">FP</span>
+               </div>
+            )}
+         </div>
+         
+         {/* MULTIPLIERS */}
+         <div className="flex gap-2 mb-3">
+            {[1, 3, 5, 10, 20].map(m => (
+            <button
+               key={m}
+               disabled={gamePhase !== 'START' && gamePhase !== 'END' && hand.length > 0}
+               onClick={() => setBetMultiplier(m)}
+               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  betMultiplier === m ? 'bg-blue-600 text-white shadow-lg scale-110' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 disabled:opacity-50'
+               }`}
+            >
+               {m}x
             </button>
-          )}
+            ))}
+         </div>
 
-          {gamePhase === 'DEALT' && (
-            <button onClick={handleDrawRequest} className="w-72 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black rounded-full text-xl shadow-lg active:scale-95 transition-all uppercase tracking-wide border-b-4 border-blue-800 active:border-b-0 active:translate-y-1">
-              DRAW
-            </button>
-          )}
-
-          {gamePhase === 'END' && (
-              <button onClick={handleReplay} className="w-72 py-4 bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 text-white font-black rounded-full text-xl shadow-lg active:scale-95 transition-all uppercase tracking-wide border-b-4 border-slate-900 active:border-b-0 active:translate-y-1">
-              REPLAY 🔄
-            </button>
-          )}
-        </div>
+         {/* MAIN BUTTON */}
+         <div className="h-14 flex items-center">
+           {hand.length===0 && <button onClick={handleInitialDeal} className="px-12 py-4 bg-green-600 text-white font-black rounded-full shadow-lg hover:scale-105 transition-transform text-lg tracking-widest">DEAL</button>}
+           {gamePhase==='DEALT' && <button onClick={handleDrawRequest} className="px-12 py-4 bg-blue-600 text-white font-black rounded-full shadow-lg hover:scale-105 transition-transform text-lg tracking-widest">DRAW</button>}
+           {gamePhase==='END' && <button onClick={handleReplay} className="px-12 py-4 bg-slate-700 text-white font-black rounded-full shadow-lg hover:scale-105 transition-transform text-lg tracking-widest">REPLAY</button>}
+         </div>
       </div>
     </div>
   );
