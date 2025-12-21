@@ -6,20 +6,20 @@ import MoneyRain from '../components/effects/MoneyRain';
 import { GAME_CONFIG } from '../utils/constants';
 import { useCountUp } from '../hooks/useCountUp';
 
-export default function Play() {
+export default function Play({ userBankroll, onBankrollUpdate }) {
   const [hand, setHand] = useState([]);
   const [heldIndices, setHeldIndices] = useState([]); 
   const [results, setResults] = useState({});
   const [errorMsg, setErrorMsg] = useState(null);
   
-  // --- MONEY & BETTING STATE ---
-  const [bankroll, setBankroll] = useState(GAME_CONFIG.STARTING_BANKROLL);
-  const [betMultiplier, setBetMultiplier] = useState(1); // 1, 3, 5, 10, 20
+  // --- STATE ---
+  const [betMultiplier, setBetMultiplier] = useState(1);
   const [currentBetAmount, setCurrentBetAmount] = useState(0); 
   const [payoutResult, setPayoutResult] = useState(null); 
   const [showEffects, setShowEffects] = useState(false);
 
-  const displayBankroll = useCountUp(bankroll, 1000, true);
+  // Use the bankroll passed from App.js
+  const displayBankroll = useCountUp(userBankroll, 1000, true);
 
   const [cardRotations, setCardRotations] = useState(new Array(GAME_CONFIG.HAND_SIZE).fill(1)); 
   const [gamePhase, setGamePhase] = useState('START'); 
@@ -98,7 +98,6 @@ export default function Play() {
     const tier = [...tiers].sort((a,b) => b.min - a.min).find(t => score >= t.min);
     const activeTier = tier || { label: 'BETTER LUCK NEXT TIME', min: 0, multiplier: 0, color: 'text-red-500', emoji: '😢' };
     
-    // Calculate Win based on the bet active when hand started
     const winAmount = currentBetAmount * activeTier.multiplier;
 
     setPayoutResult({
@@ -113,7 +112,8 @@ export default function Play() {
 
     if (winAmount > 0) {
       setTimeout(() => {
-        setBankroll(prev => prev + winAmount);
+        // UPDATE GLOBAL BANKROLL VIA PROP
+        onBankrollUpdate(winAmount);
       }, 1000); 
     }
   };
@@ -122,13 +122,15 @@ export default function Play() {
   const handleInitialDeal = () => {
     const totalBet = GAME_CONFIG.BASE_BET * betMultiplier;
     
-    if (bankroll < totalBet) {
+    if (userBankroll < totalBet) {
       setErrorMsg("INSUFFICIENT FUNDS");
       return;
     }
 
-    setBankroll(prev => prev - totalBet);
-    setCurrentBetAmount(totalBet); // Lock in the bet for this hand
+    // UPDATE GLOBAL BANKROLL VIA PROP (Deduct Bet)
+    onBankrollUpdate(-totalBet);
+    
+    setCurrentBetAmount(totalBet); 
     setPayoutResult(null);
     setShowEffects(false);
     
@@ -198,21 +200,20 @@ export default function Play() {
       {showEffects && payoutResult && <MoneyRain tierLabel={payoutResult.label} />}
 
       {/* 1. HEADER */}
-      <div className="fixed top-0 left-0 w-full h-[60px] flex items-center justify-between px-4 bg-slate-950 border-b border-slate-800 z-50 shadow-md">
+      <div className="fixed top-0 left-0 w-full h-[60px] pl-16 pr-4 flex items-center justify-between bg-slate-950 border-b border-slate-800 z-50 shadow-md">
         <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400 tracking-tighter italic">
           IFS
         </h1>
         <div className="flex items-center gap-6">
             <div className="flex flex-col items-end">
                 <span className="text-[10px] text-slate-400 font-bold tracking-widest">BANK</span>
-                <span className={`text-lg font-mono font-black ${bankroll < 100 ? 'text-red-500' : 'text-green-400'}`}>
+                <span className={`text-lg font-mono font-black ${userBankroll < 100 ? 'text-red-500' : 'text-green-400'}`}>
                     ${displayBankroll}
                 </span>
             </div>
              <div className="flex flex-col items-end border-l border-slate-700 pl-4">
                 <span className="text-[10px] text-slate-400 font-bold tracking-widest">BET</span>
                 <span className="text-lg font-mono font-black text-white">
-                    {/* Show ACTIVE bet during hand, or SELECTED bet before hand */}
                     ${gamePhase === 'START' || gamePhase === 'END' ? GAME_CONFIG.BASE_BET * betMultiplier : currentBetAmount}
                 </span>
             </div>
@@ -278,7 +279,7 @@ export default function Play() {
         {/* B. CONTROL DECK */}
         <div className="w-full flex flex-col items-center justify-center pt-2 pb-12 bg-slate-950 relative">
           
-          {/* BET SELECTOR (Only visible when not playing) */}
+          {/* BET SELECTOR */}
           {(hand.length === 0 || gamePhase === 'END') && (
             <div className="flex gap-2 mb-3">
               {GAME_CONFIG.BET_MULTIPLIERS.map(m => (
@@ -297,7 +298,7 @@ export default function Play() {
             </div>
           )}
 
-          {/* STATUS OVERLAY (Only visible during play) */}
+          {/* STATUS OVERLAY */}
           {(gamePhase === 'DEALT' || gamePhase === 'DRAWING') && (
             <div className="absolute top-[-30px] flex gap-4 text-[10px] bg-slate-800 text-white px-4 py-1.5 rounded-full font-bold shadow-lg border border-slate-700">
                <span className="text-slate-300">HELD: <span className="text-white">${currentHeldCost}</span></span>
@@ -306,7 +307,7 @@ export default function Play() {
              </div>
           )}
 
-          {/* MAIN ACTION BUTTONS */}
+          {/* BUTTONS */}
           {hand.length === 0 && (
             <button onClick={handleInitialDeal} className="w-72 py-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-black rounded-full text-xl shadow-lg active:scale-95 transition-all uppercase tracking-wide border-b-4 border-green-800 active:border-b-0 active:translate-y-1">
               DEAL HAND (-${GAME_CONFIG.BASE_BET * betMultiplier})
