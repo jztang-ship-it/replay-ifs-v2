@@ -1,4 +1,4 @@
-// REAL PLAYER POOL with IDs for Headshots
+// REAL PLAYER POOL
 const PLAYER_POOL = [
   // STARS ($4.5 - $6.5)
   { name: 'Nikola Jokic', team: 'DEN', id: '203999', baseAvg: 58, pos: 'C' },
@@ -38,14 +38,50 @@ const PLAYER_POOL = [
   { name: 'Naz Reid', team: 'MIN', id: '1629675', baseAvg: 21, pos: 'C' }
 ];
 
-export const generateMockPlayer = (forcedPos = null, excludeIds = []) => {
+// Creates a player object. 
+// 'targetCost' tells the function "I need a player worth exactly this much"
+export const generateMockPlayer = (forcedPos = null, excludeIds = [], targetCost = null) => {
   let available = PLAYER_POOL.filter(p => !excludeIds.includes(p.id));
+  
+  // If we have a strict target cost, find players who naturally fit that range
+  if (targetCost !== null) {
+      // Find players whose base cost (avg/9.5) is close to target
+      const perfectMatches = available.filter(p => {
+          const estCost = p.baseAvg / 9.5;
+          return Math.abs(estCost - targetCost) < 1.5; // Within $1.5 range
+      });
+      if (perfectMatches.length > 0) {
+          available = perfectMatches;
+      }
+  }
+
   let template = available[Math.floor(Math.random() * available.length)];
+  // Fallback logic if pool is somehow empty
   if (!template) template = PLAYER_POOL[0];
 
-  const variance = (Math.random() * 6) - 3; 
-  const calculatedCost = (template.baseAvg + variance) / 9.5; 
-  const cost = Math.max(0.8, Math.min(6.5, Math.round(calculatedCost * 10) / 10));
+  // Determine Cost
+  let cost;
+  if (targetCost !== null) {
+      // FORCE the cost to match the target (with slight random variance for realism, handled by the loop)
+      // But here we set it exactly to what is requested to fill the gap
+      cost = targetCost;
+  } else {
+      const variance = (Math.random() * 6) - 3; 
+      const rawCost = (template.baseAvg + variance) / 9.5;
+      cost = Math.round(rawCost * 10) / 10;
+  }
+  
+  // Clamp limits
+  cost = Math.max(0.8, Math.min(6.5, cost));
+
+  const avgStats = {
+    pts: Math.round(template.baseAvg * 0.65),
+    reb: Math.round(template.baseAvg * 0.15),
+    ast: Math.round(template.baseAvg * 0.15),
+    stl: Math.round(template.baseAvg * 0.03),
+    blk: Math.round(template.baseAvg * 0.02),
+    to: Math.round(template.baseAvg * 0.05),
+  };
 
   return {
     id: template.id,
@@ -55,35 +91,93 @@ export const generateMockPlayer = (forcedPos = null, excludeIds = []) => {
     team: template.team,
     cost: cost, 
     avg: template.baseAvg,
+    avgStats: avgStats,
     img: `https://cdn.nba.com/headshots/nba/latest/1040x760/${template.id}.png`
   };
 };
 
 export const dealExactBudgetHand = (count, maxBudget, excludeIds = []) => {
   const hand = [];
-  const usedIds = [...excludeIds];
+  const usedIdsInHand = new Set();
   const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
   let currentBudget = 0;
 
   for (let i = 0; i < count; i++) {
     let player;
     let attempts = 0;
+    
+    const isLastCard = i === count - 1;
+    const remainingSlots = count - 1 - i;
+    
+    // TARGETING LOGIC
+    let targetCostForThisCard = null;
+    
+    if (isLastCard) {
+        // If it's the last card, try to fill the remaining budget exactly
+        const leftover = maxBudget - currentBudget;
+        // Ensure it's valid (between 0.8 and 6.5)
+        if (leftover >= 0.8 && leftover <= 6.5) {
+            targetCostForThisCard = Math.round(leftover * 10) / 10;
+        }
+    }
+    
     while (attempts < 100) {
       const pos = positions[i % 5];
-      player = generateMockPlayer(pos, usedIds);
+      const currentExcludeIds = [...excludeIds, ...Array.from(usedIdsInHand)];
+      
+      player = generateMockPlayer(pos, currentExcludeIds, targetCostForThisCard);
+      
+      // Validation
       const newTotal = currentBudget + player.cost;
-      const remainingSlots = count - 1 - i;
-      const minFutureCost = remainingSlots * 0.8;
-      if (newTotal + minFutureCost <= maxBudget + 0.5) break; 
-      attempts++;
+      const potentialRemaining = maxBudget - newTotal;
+      const minCostForOthers = remainingSlots * 0.8; // Min $0.8 per future card
+      
+      // 1. Must not be duplicate
+      if (usedIdsInHand.has(player.id)) {
+          attempts++;
+          continue;
+      }
+
+      // 2. Must not exceed budget
+      if (newTotal > maxBudget + 0.01) {
+          attempts++;
+          continue;
+      }
+
+      // 3. Must leave enough room for future cards
+      if (potentialRemaining < minCostForOthers) {
+          attempts++;
+          continue;
+      }
+
+      // 4. (Last Card Only) Must be close to cap
+      if (isLastCard) {
+          // Ideally we want to be within $0.2 of the cap
+          if (maxBudget - newTotal > 0.5) {
+              // If we are too far under, retry to get a more expensive player
+              attempts++;
+              continue;
+          }
+      }
+
+      // If passed all checks, break
+      break; 
     }
+    
+    // Fallback if loop failed
+    if (attempts >= 100) {
+        // If we couldn't find a perfect fit, just take whatever was generated last
+        // This prevents infinite loops, even if budget isn't perfect
+    }
+
     hand.push(player);
-    usedIds.push(player.id);
+    usedIdsInHand.add(player.id); 
     currentBudget += player.cost;
   }
   return hand;
 };
 
+// Helpers (Keep existing)
 export const getTeamTheme = (team) => {
   const themes = {
     'LAL': { bg: 'from-purple-900 to-yellow-900', accent: 'text-yellow-400', border: 'border-purple-500' },
@@ -100,11 +194,26 @@ export const getTeamTheme = (team) => {
   return themes[team] || { bg: 'from-slate-800 to-slate-950', accent: 'text-white', border: 'border-slate-600' };
 };
 
-// NEW: Strict Text Color Rules
 export const getCostTextColor = (cost) => {
-    if (cost >= 5.0) return 'text-orange-400 drop-shadow-[0_2px_rgba(0,0,0,0.8)]'; // $5+ Orange
-    if (cost >= 4.0) return 'text-purple-400 drop-shadow-[0_2px_rgba(0,0,0,0.8)]'; // $4 Purple
-    if (cost >= 3.0) return 'text-blue-400 drop-shadow-[0_2px_rgba(0,0,0,0.8)]';   // $3 Blue
-    if (cost >= 2.0) return 'text-green-400 drop-shadow-[0_2px_rgba(0,0,0,0.8)]';  // $2 Green
-    return 'text-white drop-shadow-[0_2px_rgba(0,0,0,0.8)]';                        // $1 White
+    if (cost >= 5.0) return 'text-orange-400 drop-shadow-[0_2px_rgba(0,0,0,0.8)]';
+    if (cost >= 4.0) return 'text-purple-400 drop-shadow-[0_2px_rgba(0,0,0,0.8)]';
+    if (cost >= 3.0) return 'text-blue-400 drop-shadow-[0_2px_rgba(0,0,0,0.8)]';
+    if (cost >= 2.0) return 'text-green-400 drop-shadow-[0_2px_rgba(0,0,0,0.8)]';
+    return 'text-white drop-shadow-[0_2px_rgba(0,0,0,0.8)]';
+};
+
+export const getCostBorderColor = (cost) => {
+    if (cost >= 5.0) return 'border-orange-500';
+    if (cost >= 4.0) return 'border-purple-500';
+    if (cost >= 3.0) return 'border-blue-500';
+    if (cost >= 2.0) return 'border-green-500';
+    return 'border-slate-300';
+};
+
+export const getPerformanceColor = (score, avg) => {
+  if (!score || !avg) return 'text-white';
+  const ratio = score / avg;
+  if (ratio >= 1.15) return 'text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.6)]'; 
+  if (ratio <= 0.85) return 'text-red-400'; 
+  return 'text-white'; 
 };
