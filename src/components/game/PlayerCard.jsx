@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getTierColor } from '../../engine/dealer';
+import { getTeamTheme, getCostTextColor } from '../../engine/dealer';
 
 const RollingNumber = ({ value, duration = 1000, delay = 0 }) => {
   const [display, setDisplay] = useState(0);
@@ -34,7 +34,10 @@ const RollingNumber = ({ value, duration = 1000, delay = 0 }) => {
 };
 
 export default function PlayerCard({ player, isHeld, onToggle, finalScore, rotation, isRolling }) {
-  const tierColor = getTierColor(player.cost || 0);
+  const theme = getTeamTheme(player.team || 'NBA');
+  const costColor = getCostTextColor(player.cost); // NEW: Get Color
+  
+  const isMonsterGame = finalScore && finalScore.score >= 40;
   
   const style = {
     transform: `rotateY(${180 + (rotation * 180)}deg)`,
@@ -50,52 +53,50 @@ export default function PlayerCard({ player, isHeld, onToggle, finalScore, rotat
 
   return (
     <div 
-      className={`relative w-52 h-80 perspective-1000 cursor-pointer group transition-all duration-300`} 
+      className={`relative w-48 h-72 md:w-52 md:h-80 perspective-1000 cursor-pointer group transition-all duration-300 ${isHeld ? 'scale-105 z-20' : 'hover:scale-105 z-10'}`} 
       onClick={onToggle}
     >
       <div className="relative w-full h-full duration-500" style={style}>
         
         {/* --- FRONT FACE --- */}
-        <div className="absolute w-full h-full bg-slate-900 rounded-2xl border-[3px] border-slate-700 backface-hidden flex flex-col items-center p-2 shadow-2xl overflow-hidden" 
+        <div className={`absolute w-full h-full bg-gradient-to-br ${theme.bg} rounded-2xl border-[3px] 
+             ${isMonsterGame ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.5)]' : theme.border} 
+             backface-hidden flex flex-col items-center shadow-2xl overflow-hidden`} 
              style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }}>
           
-          <div className={`absolute inset-0 opacity-40 bg-gradient-to-br ${tierColor}`}></div>
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 text-[90px] font-black text-white/5 select-none pointer-events-none z-0 tracking-tighter leading-none">
+            {player.team}
+          </div>
           
-          {/* HEADER: Compressed margin to give image room */}
-          <div className="w-full flex justify-between items-start z-10 mb-0">
-             <div className="text-[10px] font-black text-slate-300 bg-slate-950/60 px-2 py-0.5 rounded border border-white/5">{player.pos}</div>
-             <div className="text-base font-black text-green-400 drop-shadow-md">${player.cost}</div>
+          <div className="w-full flex justify-between items-start z-20 p-3 pb-0">
+             <div className="text-[10px] font-black text-white/80 bg-black/40 px-2 py-0.5 rounded backdrop-blur-md border border-white/10">{player.pos}</div>
+             {/* APPLIED TEXT COLOR HERE */}
+             <div className={`text-2xl font-black ${costColor}`}>
+                ${player.cost?.toFixed(1)}
+             </div>
           </div>
 
-          {/* IMAGE FIX: 
-              1. Height set to 85% (keeps head inside box).
-              2. Scale-110 (makes it look big without changing layout flow).
-              3. Object-bottom (anchors feet). 
-          */}
-          <div className="z-10 w-full flex-1 flex items-end justify-center relative overflow-hidden">
+          <div className="absolute bottom-20 w-full h-[65%] z-10 flex items-end justify-center pointer-events-none">
              {player.img ? (
                <img 
                  src={player.img} 
                  alt={player.name}
-                 className="h-[85%] w-auto object-contain object-bottom drop-shadow-2xl scale-125 transform translate-y-2 group-hover:scale-135 transition-transform duration-300"
-                 onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                 className="h-full w-auto object-contain drop-shadow-2xl transition-transform duration-300 group-hover:scale-110 origin-bottom"
+                 onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                />
-             ) : ( <div className="text-6xl self-center">🏀</div> )}
-             <div className="text-6xl absolute hidden self-center">🏀</div>
+             ) : ( <div className="hidden"></div> )}
+             <div className="hidden h-full w-full items-center justify-center text-6xl opacity-20 grayscale">🏀</div>
           </div>
 
-          {/* NAME PLATE */}
-          <div className="text-center z-10 w-full px-1 mb-2 leading-none relative">
-             <div className="absolute inset-0 bg-slate-900/40 blur-md -z-10 rounded-full"></div>
-             <div className="text-[9px] font-black uppercase text-slate-300 tracking-wider mb-0.5">{player.team}</div>
-             <div className="text-sm font-bold text-white truncate px-2">{player.name}</div>
+          <div className="absolute bottom-28 w-full text-center z-20 px-1">
+             <div className="text-sm font-bold text-white truncate px-2 drop-shadow-md">{player.name}</div>
+             <div className="text-[9px] font-black uppercase text-white/50 tracking-wider">{player.team}</div>
           </div>
 
-          {/* STATS BOX */}
-          <div className="w-full h-24 bg-slate-950/90 rounded-xl p-2 z-10 border border-white/10 flex flex-col justify-center shadow-inner relative">
+          <div className="absolute bottom-0 w-full h-28 bg-black/80 backdrop-blur-md z-20 border-t border-white/10 flex flex-col justify-center rounded-b-xl px-2">
              {isRolling ? (
                <div className="text-center">
-                 <span className="text-lg text-yellow-500 animate-pulse font-mono tracking-widest">•••</span>
+                 <span className={`text-lg ${theme.accent} animate-pulse font-mono tracking-widest`}>•••</span>
                </div>
              ) : finalScore ? (
                <>
@@ -105,34 +106,31 @@ export default function PlayerCard({ player, isHeld, onToggle, finalScore, rotat
                  </div>
                  
                  <div className="text-center mb-1">
-                    <span className={`text-3xl font-black leading-none ${finalScore.score >= 45 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]' : 'text-white'}`}>
+                    <span className={`text-3xl font-black leading-none ${isMonsterGame ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)] animate-pulse' : 'text-white'}`}>
                       <RollingNumber value={finalScore.score} duration={1200} />
                     </span>
                  </div>
                  
-                 {finalScore.stats && (
-                    <div className="grid grid-cols-3 gap-y-1 gap-x-1 text-[8px] font-mono text-slate-400 leading-tight">
-                      <div className="text-center"><span className="text-white font-bold"><RollingNumber value={finalScore.stats.pts} delay={100} /></span> P</div>
-                      <div className="text-center"><span className="text-white font-bold"><RollingNumber value={finalScore.stats.reb} delay={200} /></span> R</div>
-                      <div className="text-center"><span className="text-white font-bold"><RollingNumber value={finalScore.stats.ast} delay={300} /></span> A</div>
-                      <div className="text-center"><span className="text-slate-300"><RollingNumber value={finalScore.stats.stl} delay={400} /></span> S</div>
-                      <div className="text-center"><span className="text-slate-300"><RollingNumber value={finalScore.stats.blk} delay={500} /></span> B</div>
-                      <div className="text-center"><span className="text-red-400"><RollingNumber value={finalScore.stats.to} delay={600} /></span> T</div>
-                    </div>
-                 )}
+                 <div className="grid grid-cols-3 gap-y-0.5 gap-x-1 text-[8px] font-mono text-slate-400 text-center leading-tight">
+                    <div><span className="text-white font-bold">{Math.round(finalScore.stats?.pts)}</span> P</div>
+                    <div><span className="text-white font-bold">{Math.round(finalScore.stats?.reb)}</span> R</div>
+                    <div><span className="text-white font-bold">{Math.round(finalScore.stats?.ast)}</span> A</div>
+                    <div><span className="text-slate-300">{Math.round(finalScore.stats?.stl)}</span> S</div>
+                    <div><span className="text-slate-300">{Math.round(finalScore.stats?.blk)}</span> B</div>
+                    <div><span className="text-red-400">{Math.round(finalScore.stats?.to)}</span> T</div>
+                 </div>
                </>
              ) : (
-               <div className="text-center flex flex-col items-center justify-center h-full">
-                 <span className="text-[8px] text-slate-500 uppercase font-bold tracking-wider mb-1">PROJECTED</span>
-                 <span className="text-xl font-bold text-slate-200">{player.avg}</span>
+               <div className="text-center flex flex-col items-center justify-center h-full pb-2">
+                 <span className="text-[8px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">PROJECTED</span>
+                 <span className="text-xl font-bold text-slate-200">{player.avg} <span className="text-[9px] text-slate-500">FP</span></span>
                </div>
              )}
           </div>
 
-          {/* HOLD INDICATOR */}
           {isHeld && (
-            <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
-              <div className="bg-blue-600/90 backdrop-blur-sm text-white text-xl font-black px-6 py-2 rounded-full border-2 border-white/20 shadow-2xl animate-in zoom-in duration-200 tracking-widest">
+            <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none bg-black/20">
+              <div className="bg-blue-600 text-white text-lg font-black px-6 py-2 rounded-full border-2 border-white/20 shadow-2xl animate-in zoom-in duration-200 tracking-widest">
                 HOLD
               </div>
             </div>
@@ -142,7 +140,7 @@ export default function PlayerCard({ player, isHeld, onToggle, finalScore, rotat
         {/* --- BACK FACE --- */}
         <div className="absolute w-full h-full bg-slate-950 rounded-2xl border-[3px] border-slate-800 backface-hidden flex flex-col items-center justify-center p-6"
              style={{ backfaceVisibility: 'hidden' }}>
-           <img src="/assets/Beta-logo.png" alt="IFS" className="w-24 h-24 object-contain opacity-80" onError={(e)=>{e.target.style.display='none';}}/>
+           <img src="/assets/Beta-logo.png" alt="IFS" className="w-20 h-20 object-contain opacity-50 grayscale" />
            <div className="mt-4 text-[10px] font-bold tracking-[0.3em] text-slate-600 uppercase">REPLAY</div>
         </div>
 
