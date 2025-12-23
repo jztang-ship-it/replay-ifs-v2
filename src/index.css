@@ -1,31 +1,26 @@
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  background-color: #0f172a;
-  color: white;
-  overflow: hidden;
+/* CUSTOM UTILITIES FOR CARD FLIP */
+.perspective-1000 {
+  perspective: 1000px;
 }
 
-/* 3D Utilities */
-.perspective-1000 { perspective: 1000px; }
-.transform-style-3d { transform-style: preserve-3d; }
-.backface-hidden { backface-visibility: hidden; }
-
-/* CARD BACK - FIXED DOG SIZE */
-.card-back-bg {
-  background-image: url('/assets/Beta-logo.png');
-  background-position: center;
-  background-repeat: no-repeat;
-  /* Dog is 80px wide */
-  background-size: 80px auto; 
-  background-color: #1e293b; 
+.transform-style-3d {
+  transform-style: preserve-3d;
 }
 
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
-.animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.rotate-y-0 {
+  transform: rotateY(0deg);
+}
