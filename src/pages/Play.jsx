@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import { useBankroll, VIP_TIERS } from '../context/BankrollContext';
-import PlayerCard from '../components/game/PlayerCard';
+// CHANGED: Importing LiveCard instead of PlayerCard
+import LiveCard from '../components/game/LiveCard'; 
 import MoneyRain from '../components/effects/MoneyRain';
 import JackpotBar from '../components/game/JackpotBar';
 import BadgeLegend from '../components/game/BadgeLegend';
@@ -13,7 +14,7 @@ const RollingNumber = ({ value }) => {
   return <span>{display.toLocaleString(undefined, { maximumFractionDigits: 1 })}</span>;
 };
 
-// --- XP FLOATER (Moved Down, Smaller) ---
+// --- XP FLOATER ---
 const XpFloater = ({ amount }) => (
   <div className="fixed top-20 right-4 pointer-events-none z-[110] animate-bounce-up">
     <span className="text-xs font-black text-blue-400 drop-shadow-md bg-slate-900/90 px-2 py-1 rounded border border-blue-500/30">
@@ -51,10 +52,9 @@ export default function Play() {
     : hand.reduce((acc, p) => acc + p.cost, 0);
   const remainingCap = SALARY_CAP - usedSalary;
 
-  // --- XP TIMER EFFECT ---
   useEffect(() => {
     if (xpEarned) {
-      const timer = setTimeout(() => setXpEarned(null), 1000); // Disappear after 1s
+      const timer = setTimeout(() => setXpEarned(null), 1000);
       return () => clearTimeout(timer);
     }
   }, [xpEarned]);
@@ -181,7 +181,6 @@ export default function Play() {
     return () => clearTimeout(t);
   }, [gamePhase, sequencerIndex]);
 
-  // UI HELPERS
   const handleReplay = () => { setHand([]); setGamePhase('START'); setRunningScore(0); setPayoutResult(null); setXpEarned(null); };
   const toggleHold = (i) => { if (gamePhase === 'DEALT') setHeldIndices(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]); };
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
@@ -200,10 +199,24 @@ export default function Play() {
         <div className="shrink-0 w-full flex justify-center mt-4 mb-4 relative z-30"><JackpotBar addAmount={jackpotContribution} /></div>
         <div className="flex-1 flex flex-col items-center justify-start min-h-0 relative z-20">
            
-           {/* TALLER CARDS: Changed aspect-[3/4] to aspect-[3/5] */}
            <div className="w-full grid grid-cols-5 gap-2">
-              {hand.length === 0 ? Array.from({length:5}).map((_,i)=><div key={i} className="aspect-[3/5]"><PlayerCard isFaceDown={true}/></div>) : 
-                 hand.map((p,i) => (<div key={`${p.id}-${i}`} className="aspect-[3/5]"><PlayerCard player={p} isHeld={heldIndices.includes(i)} onToggle={() => toggleHold(i)} finalScore={getRes(i)} isFaceDown={isFaceDown(i)} /></div>))
+              {/* FIXED: Changed from PlayerCard to LiveCard here */}
+              {hand.length === 0 ? 
+                 Array.from({length:5}).map((_,i) => (
+                    <div key={i} className="aspect-[3/5]"><LiveCard isFaceDown={true}/></div>
+                 )) 
+              : 
+                 hand.map((p,i) => (
+                    <div key={`${p.id}-${i}`} className="aspect-[3/5]">
+                        <LiveCard 
+                            player={p} 
+                            isHeld={heldIndices.includes(i)} 
+                            onToggle={() => toggleHold(i)} 
+                            finalScore={getRes(i)} 
+                            isFaceDown={isFaceDown(i)} 
+                        />
+                    </div>
+                 ))
               }
            </div>
            
