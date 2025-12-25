@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PageContainer from '../components/layout/PageContainer';
-import { useBankroll, VIP_TIERS } from '../context/BankrollContext';
-// CHANGED: Importing LiveCard instead of PlayerCard
+import { useBankroll } from '../context/BankrollContext';
 import LiveCard from '../components/game/LiveCard'; 
 import MoneyRain from '../components/effects/MoneyRain';
 import JackpotBar from '../components/game/JackpotBar';
@@ -23,13 +22,10 @@ const XpFloater = ({ amount }) => (
   </div>
 );
 
-const TIER_REDRAWS = [0, 0, 1, 2, 3, 5, 10, 99, 99, 99, 99];
-
 export default function Play() {
   const { 
     bankroll, updateBankroll, 
     recordGame, recordRedraw, 
-    vipLevel, dailyStats 
   } = useBankroll(); 
   
   const [hand, setHand] = useState([]);
@@ -96,19 +92,6 @@ export default function Play() {
     setTimeout(() => performReveal(nextHand), 500);
   };
 
-  const handleScout = () => {
-    const limit = TIER_REDRAWS[vipLevel] || 0;
-    if (dailyStats.redraws >= limit) {
-        alert(`Daily Scout limit reached!`);
-        return;
-    }
-    recordRedraw();
-    setHeldIndices([]); 
-    const newHand = fetchDraftPool(5, [], SALARY_CAP);
-    enforceCap(newHand, [], SALARY_CAP);
-    setHand(newHand);
-  };
-
   const enforceCap = (cards, lockedIndices, max) => {
     let total = cards.reduce((sum, c) => sum + c.cost, 0);
     let attempts = 0;
@@ -158,18 +141,20 @@ export default function Play() {
        } else { 
           t = setTimeout(() => { 
              const finalTotal = Object.values(results).reduce((a, b) => a + b.score, 0);
+             
              let mult = 0; let lbl = "LOSS"; let clr = "text-slate-500";
-             if (finalTotal >= 250) { mult=20; lbl="JACKPOT"; clr="text-yellow-400"; }
-             else if (finalTotal >= 220) { mult=10; lbl="LEGENDARY"; clr="text-yellow-200"; }
-             else if (finalTotal >= 200) { mult=5; lbl="BIG WIN"; clr="text-green-400"; }
-             else if (finalTotal >= 180) { mult=3; lbl="WINNER"; clr="text-blue-400"; }
-             else if (finalTotal >= 150) { mult=0.5; lbl="SAVER"; clr="text-blue-200"; }
+             if (finalTotal >= 280) { mult=100; lbl="JACKPOT"; clr="text-yellow-400"; }
+             else if (finalTotal >= 250) { mult=15; lbl="LEGENDARY"; clr="text-purple-400"; }
+             else if (finalTotal >= 220) { mult=5; lbl="BIG WIN"; clr="text-green-400"; }
+             else if (finalTotal >= 190) { mult=2; lbl="WINNER"; clr="text-blue-400"; }
+             else if (finalTotal >= 165) { mult=0.5; lbl="SAVER"; clr="text-slate-400"; }
              
              if (mult > 0) { 
                  updateBankroll(Math.floor(10 * betMultiplier * mult)); 
                  setShowEffects(true); 
              }
              setPayoutResult({label:lbl, color:clr});
+             
              const totalBadges = Object.values(results).reduce((acc, r) => acc + (r.badges ? r.badges.length : 0), 0);
              const isWin = mult > 0;
              recordGame(isWin, totalBadges);
@@ -186,9 +171,6 @@ export default function Play() {
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
   const isFaceDown = (i) => (gamePhase === 'START') || (gamePhase === 'DEALING' && i > sequencerIndex) || (gamePhase === 'DRAWING' && !heldIndices.includes(i)) || (gamePhase === 'REVEALING' && i > sequencerIndex && !heldIndices.includes(i));
   const betOpts = [1, 3, 5, 10, 20];
-  const scoutLimit = TIER_REDRAWS[vipLevel] || 0;
-  const scoutUsed = dailyStats.redraws || 0;
-  const canScout = scoutUsed < scoutLimit;
 
   return (
     <PageContainer>
@@ -200,7 +182,6 @@ export default function Play() {
         <div className="flex-1 flex flex-col items-center justify-start min-h-0 relative z-20">
            
            <div className="w-full grid grid-cols-5 gap-2">
-              {/* FIXED: Changed from PlayerCard to LiveCard here */}
               {hand.length === 0 ? 
                  Array.from({length:5}).map((_,i) => (
                     <div key={i} className="aspect-[3/5]"><LiveCard isFaceDown={true}/></div>
@@ -247,12 +228,6 @@ export default function Play() {
            </div>
            
            <div className="flex gap-2">
-               {gamePhase === 'DEALT' && (
-                   <button onClick={handleScout} disabled={!canScout} className={`flex-1 py-3.5 font-bold rounded-xl shadow-lg uppercase text-xs tracking-wider flex flex-col items-center justify-center leading-none ${canScout ? 'bg-blue-600 text-white hover:brightness-110' : 'bg-slate-800 text-slate-500'}`}>
-                       <span>SCOUT</span>
-                       <span className="text-[9px] opacity-70 mt-0.5">{scoutUsed}/{scoutLimit} Daily</span>
-                   </button>
-               )}
                <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleReplay:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`py-3.5 text-white font-black rounded-xl shadow-lg transition-all text-sm tracking-widest uppercase flex-1 ${gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'?'bg-slate-800 text-slate-500':'bg-green-600 hover:brightness-110'}`}>
                  {gamePhase==='DEALT'?'DRAW':(gamePhase==='END'?'REPLAY':(gamePhase==='DEALING'?'PROCESSING...':'DEAL'))}
                </button>

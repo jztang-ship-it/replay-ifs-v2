@@ -23,11 +23,11 @@ const CardScoreRoller = ({ value }) => {
 
 export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceDown }) {
   
-  // 1. TIER STYLES (Border Colors)
+  // 1. TIER STYLES
   const getTierStyles = () => {
     if (!player) return { border: 'border-slate-800', text: 'text-slate-400' };
-    if (isHeld) return { border: 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]', text: 'text-yellow-400' };
     
+    // No yellow border for held players anymore
     const cost = parseFloat(player.cost || 0);
     if (cost >= 5.0) return { border: 'border-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)]', text: 'text-orange-500' };
     if (cost >= 4.0) return { border: 'border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]', text: 'text-purple-400' };
@@ -70,15 +70,19 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
         <div className={`absolute inset-0 w-full h-full bg-slate-950 rounded-xl border-[2px] overflow-hidden flex flex-col ${tier.border}`} style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
           {player ? (
             <>
-              {/* IMAGE (Full Bleed - No Top Border) */}
+              {/* IMAGE REGION */}
               <div className="relative flex-1 w-full overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-slate-800 via-slate-900 to-black z-0"></div>
                 
-                {/* Image Scaled to 115% to kill empty space */}
+                {/* ZOOM FIX:
+                   scale-125: Zooms in 25%
+                   origin-top: Anchors the zoom to the top (the head)
+                   object-cover: Ensures it fills the box
+                */}
                 <img 
                   src={player.image} 
                   alt={player.name}
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-[140%] h-[115%] object-contain object-top z-10 drop-shadow-2xl"
+                  className="absolute inset-0 w-full h-full object-cover object-top origin-top scale-125 z-10 drop-shadow-2xl"
                 />
 
                 {/* Name Overlay */}
@@ -86,18 +90,27 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                    <h3 className="text-[9px] font-black text-white uppercase tracking-wider line-clamp-1 px-1 drop-shadow-md">{player.name}</h3>
                 </div>
 
-                {/* Salary Badge */}
+                {/* Salary Badge (Top Right) */}
                 <div className="absolute top-1 right-1 z-30">
                     <div className={`text-[9px] font-black ${tier.text} bg-black/80 px-1.5 py-0.5 rounded border border-white/10 shadow-lg`}>
                         ${player.cost}
                     </div>
                 </div>
+
+                {/* HOLD BUTTON (Bottom Left of Image) */}
+                {isHeld && (
+                  <div className="absolute bottom-1 left-1 z-40">
+                      <div className="bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 rounded shadow-lg border border-white uppercase tracking-wider">
+                          HELD
+                      </div>
+                  </div>
+                )}
               </div>
 
-              {/* FOOTER (5 Rows) */}
+              {/* FOOTER */}
               <div className="bg-black border-t border-slate-800 p-0.5 shrink-0 z-30 relative flex flex-col gap-[1px]">
                  
-                 {/* Row 1: Badges */}
+                 {/* Badges */}
                  <div className="h-4 flex items-center justify-center gap-1 bg-slate-900/50 rounded-sm">
                     {badges.length > 0 ? (
                         badges.map((b, i) => <span key={i} className="text-xs animate-pulse">{b}</span>)
@@ -106,7 +119,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                     )}
                  </div>
 
-                 {/* Row 2: Date */}
+                 {/* Date */}
                  <div className="text-center bg-slate-900/30">
                     {isProjected ? (
                         <span className="text-[6px] text-slate-500 font-bold uppercase tracking-widest">SEASON AVG</span>
@@ -115,26 +128,24 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                     )}
                  </div>
 
-                 {/* Row 3: Offense */}
+                 {/* Stats Grid */}
                  <div className="grid grid-cols-3 gap-0.5 bg-slate-900/30 rounded-sm py-0.5">
                     <StatItem label="PTS" value={displayStats.pts} />
                     <StatItem label="REB" value={displayStats.reb} />
                     <StatItem label="AST" value={displayStats.ast} />
                  </div>
-
-                 {/* Row 4: Defense */}
                  <div className="grid grid-cols-3 gap-0.5 bg-slate-900/30 rounded-sm py-0.5">
                     <StatItem label="STL" value={displayStats.stl} />
                     <StatItem label="BLK" value={displayStats.blk} />
                     <StatItem label="TO" value={displayStats.to} />
                  </div>
 
-                 {/* Row 5: Score */}
-                 <div className="bg-slate-800 rounded mx-0.5 py-0.5 mt-0.5 text-center border border-slate-700 flex items-center justify-center gap-1">
+                 {/* Score (Large Font) */}
+                 <div className="bg-slate-800 rounded mx-0.5 py-1 mt-0.5 text-center border border-slate-700 flex items-center justify-center gap-2">
                     <span className="text-[7px] text-slate-400 font-bold uppercase">
                         {isProjected ? 'PROJ' : 'FP'}
                     </span>
-                    <span className={`text-[10px] font-mono ${isProjected ? 'text-white' : fpColorClass}`}>
+                    <span className={`text-lg font-mono leading-none ${isProjected ? 'text-white' : fpColorClass}`}>
                         {isProjected ? projectedScore.toFixed(1) : (
                             <>
                                 <CardScoreRoller value={finalScore.score} />
@@ -144,15 +155,6 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                     </span>
                  </div>
               </div>
-
-              {/* Hold Overlay */}
-              {isHeld && (
-                <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center">
-                  <div className="bg-yellow-500/90 text-black text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_15px_rgba(250,204,21,0.5)] border-2 border-white tracking-widest uppercase transform scale-110 backdrop-blur-sm">
-                      HOLD
-                  </div>
-                </div>
-              )}
             </>
           ) : null}
         </div>
