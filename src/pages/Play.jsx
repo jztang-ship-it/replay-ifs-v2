@@ -4,68 +4,62 @@ import { useBankroll } from '../context/BankrollContext';
 import LiveCard from '../components/game/LiveCard'; 
 import MoneyRain from '../components/effects/MoneyRain';
 import JackpotBar from '../components/game/JackpotBar';
-import BadgeLegend from '../components/game/BadgeLegend';
+// REMOVED: BadgeLegend import (Moved inside footer)
 import PayoutInfo from '../components/game/PayoutInfo'; 
 import { fetchDraftPool, getPlayerGameLog } from '../data/real_nba_db';
 
-// --- FIXED TEAM SCORE ROLLER ---
 const TeamScoreRoller = ({ value }) => {
   const [display, setDisplay] = useState(0);
-  const startVal = useRef(0); // Memorize where we stopped last time
-
+  const startVal = useRef(0);
   useEffect(() => {
-    // If value reset to 0 (new game), reset instantly without animation
-    if (value === 0) {
-      setDisplay(0);
-      startVal.current = 0;
-      return;
-    }
-
+    if (value === 0) { setDisplay(0); startVal.current = 0; return; }
     const start = startVal.current;
     const end = value;
-    
-    // If no change, do nothing
     if (start === end) return;
-
-    const duration = 1000;
+    const duration = 1500;
     let startTime;
-
     const animate = (time) => {
       if (!startTime) startTime = time;
       const progress = Math.min((time - startTime) / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3); // Cubic ease out
-      
-      const current = start + (end - start) * ease;
-      setDisplay(current);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        // Animation done, save this as the new start point
-        startVal.current = end;
-      }
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setDisplay(start + (end - start) * ease);
+      if (progress < 1) requestAnimationFrame(animate); else startVal.current = end;
     };
-    
     requestAnimationFrame(animate);
   }, [value]);
-
   return <span>{display.toLocaleString(undefined, { maximumFractionDigits: 1 })}</span>;
 };
 
-// --- XP FLOATER ---
 const XpFloater = ({ amount }) => (
   <div className="fixed top-20 right-4 pointer-events-none z-[110] animate-bounce-up">
-    <span className="text-xs font-black text-blue-400 drop-shadow-md bg-slate-900/90 px-2 py-1 rounded border border-blue-500/30">
-      +{amount} XP
-    </span>
+    <span className="text-xs font-black text-blue-400 drop-shadow-md bg-slate-900/90 px-2 py-1 rounded border border-blue-500/30">+{amount} XP</span>
   </div>
 );
 
+const WinText = ({ label, color }) => {
+  const safeColor = color || "text-white"; 
+  const bgClass = safeColor.includes('text-') ? safeColor.replace('text-', 'bg-') : 'bg-white';
+  const isLoss = label === 'LOSS';
+  
+  return (
+    <div className="relative flex flex-col items-center justify-center z-50">
+      {!isLoss && (
+        <div className={`absolute inset-0 blur-xl opacity-50 ${bgClass} opacity-50 animate-pulse scale-150 rounded-full`}></div>
+      )}
+      <span className={`relative text-3xl font-black italic tracking-tighter uppercase drop-shadow-lg ${safeColor} ${!isLoss ? 'animate-bounce scale-110' : ''}`}>
+        {label}{!isLoss && " !!!"}
+      </span>
+      {!isLoss && (
+        <span className="relative text-[10px] text-white tracking-[0.5em] font-bold uppercase opacity-90 mt-1 animate-pulse">
+          PAYOUT WINNER
+        </span>
+      )}
+    </div>
+  );
+};
+
 export default function Play() {
-  const { 
-    bankroll, updateBankroll, 
-    recordGame, 
-  } = useBankroll(); 
+  const { bankroll, updateBankroll, recordGame } = useBankroll(); 
   
   const [hand, setHand] = useState([]);
   const [heldIndices, setHeldIndices] = useState([]); 
@@ -74,7 +68,6 @@ export default function Play() {
   const [payoutResult, setPayoutResult] = useState(null); 
   const [showEffects, setShowEffects] = useState(false);
   const [xpEarned, setXpEarned] = useState(null);
-  
   const [showRules, setShowRules] = useState(false);
 
   const [gamePhase, setGamePhase] = useState('START'); 
@@ -83,11 +76,20 @@ export default function Play() {
   const [jackpotContribution, setJackpotContribution] = useState(0);
   
   const SALARY_CAP = 15.0;
+  const EASY_MODE = true; 
+  const MIN_TARGET = 14.8; 
 
   const usedSalary = gamePhase === 'DEALT' 
     ? hand.reduce((acc, p, i) => heldIndices.includes(i) ? acc + p.cost : acc, 0)
     : hand.reduce((acc, p) => acc + p.cost, 0);
   const remainingCap = SALARY_CAP - usedSalary;
+
+  // --- COMPACT BADGE LIST FOR FOOTER ---
+  // Format: 3 Columns x 2 Rows
+  const badgeList = [
+    { label: "FIRE", emoji: "🔥" }, { label: "TRIP", emoji: "👑" }, { label: "DBL", emoji: "✌️" },
+    { label: "5x5", emoji: "🖐️" }, { label: "QUAD", emoji: "🦕" }, { label: "LOCK", emoji: "🔒" }
+  ];
 
   useEffect(() => {
     if (xpEarned) {
@@ -97,17 +99,29 @@ export default function Play() {
   }, [xpEarned]);
 
   const handleDeal = () => {
+    if (bankroll < 10) updateBankroll(1000); 
     const totalBet = 10 * betMultiplier;
-    if (bankroll < totalBet) { alert("Insufficient Funds!"); return; }
+    if ((bankroll < 10 ? 1000 : bankroll) < totalBet) { alert("Insufficient Funds!"); return; }
 
     updateBankroll(-totalBet);
     setJackpotContribution(totalBet * 0.05); setTimeout(() => setJackpotContribution(0), 100);
     setPayoutResult(null); setShowEffects(false); setXpEarned(null); setRunningScore(0); setResults({}); setHeldIndices([]);
     
-    const newHand = fetchDraftPool(5, [], SALARY_CAP);
-    enforceCap(newHand, [], SALARY_CAP);
+    const pool = fetchDraftPool(60, [], 15.0); 
+    let initialHand = [];
+    
+    // Star-First Dealing
+    const stars = pool.filter(p => p.cost >= 4.50);
+    const star = stars.length > 0 ? stars[Math.floor(Math.random() * stars.length)] : pool.sort((a,b)=>b.cost-a.cost)[0];
+    initialHand.push(star);
 
-    setHand(newHand);
+    const whiteTier = pool.filter(p => p.cost < 2.00 && p.id !== star.id);
+    for(let i=0; i<4; i++) {
+        initialHand.push(whiteTier[i] || pool.find(p => !initialHand.includes(p) && p.id !== star.id));
+    }
+
+    optimizeTeam(initialHand, [], SALARY_CAP);
+    setHand(initialHand);
     setGamePhase('DEALING');
     setSequencerIndex(0);
   };
@@ -118,6 +132,7 @@ export default function Play() {
     const keptCards = heldIndices.map(i => hand[i]);
     const heldNames = keptCards.map(c => c.name);
     const slotsNeeded = 5 - heldIndices.length;
+    
     const replacements = fetchDraftPool(slotsNeeded, heldNames, SALARY_CAP); 
     
     let nextHand = [...hand];
@@ -128,31 +143,67 @@ export default function Play() {
             repIdx++;
         }
     }
-    enforceCap(nextHand, heldIndices, SALARY_CAP);
+    optimizeTeam(nextHand, heldIndices, SALARY_CAP);
     setHand(nextHand);
     setTimeout(() => performReveal(nextHand), 500);
   };
 
-  const enforceCap = (cards, lockedIndices, max) => {
-    let total = cards.reduce((sum, c) => sum + c.cost, 0);
+  const optimizeTeam = (cards, lockedIndices, maxCap) => {
     let attempts = 0;
-    while (total > max && attempts < 50) {
-      let expensiveIdx = -1;
-      let maxCost = -1;
-      cards.forEach((c, i) => {
-        if (!lockedIndices.includes(i) && c.cost > maxCost) {
-          maxCost = c.cost;
-          expensiveIdx = i;
+    const MAX_ATTEMPTS = 150;
+    const getTotal = () => cards.reduce((sum, c) => sum + c.cost, 0);
+    let total = getTotal();
+
+    while (attempts < MAX_ATTEMPTS) {
+        total = getTotal();
+        if (total <= maxCap && total >= MIN_TARGET) break;
+
+        if (total > maxCap) {
+            let expensiveIdx = -1; let maxCost = -1;
+            cards.forEach((c, i) => {
+                if (lockedIndices.includes(i)) return;
+                if (c.cost > maxCost) { maxCost = c.cost; expensiveIdx = i; }
+            });
+            if (expensiveIdx !== -1) {
+                const overflow = total - maxCap;
+                const targetCost = cards[expensiveIdx].cost - overflow - 0.1;
+                const pool = fetchDraftPool(1, cards.map(c => c.name), Math.max(0.5, targetCost));
+                if (pool.length > 0) cards[expensiveIdx] = pool[0];
+            }
+        } 
+        else if (total < MIN_TARGET) {
+            let cheapIdx = -1; let minCost = 999;
+            cards.forEach((c, i) => {
+                if (!lockedIndices.includes(i) && c.cost < minCost) { minCost = c.cost; cheapIdx = i; }
+            });
+            if (cheapIdx !== -1) {
+                const currentCost = cards[cheapIdx].cost;
+                const roomAvailable = maxCap - total;
+                const targetMax = currentCost + roomAvailable;
+                const pool = fetchDraftPool(1, cards.map(c => c.name), targetMax);
+                if (pool.length > 0) {
+                    const candidate = pool[0];
+                    const potentialTotal = total - currentCost + candidate.cost;
+                    if (candidate.cost > currentCost && potentialTotal <= maxCap + 0.001) {
+                        cards[cheapIdx] = candidate;
+                    }
+                }
+            }
         }
-      });
-      if (expensiveIdx !== -1) {
-        const currentName = cards[expensiveIdx].name;
-        const allNames = cards.map(c => c.name);
-        const pool = fetchDraftPool(1, allNames, maxCost - 0.1);
-        if (pool.length > 0) cards[expensiveIdx] = pool[0];
-      }
-      total = cards.reduce((sum, c) => sum + c.cost, 0);
-      attempts++;
+        attempts++;
+    }
+
+    let safetyAttempts = 0;
+    while (getTotal() > maxCap && safetyAttempts < 50) {
+        let expensiveIdx = -1; let maxCost = -1;
+        cards.forEach((c, i) => {
+             if (!lockedIndices.includes(i) && c.cost > maxCost) { maxCost = c.cost; expensiveIdx = i; }
+        });
+        if (expensiveIdx !== -1) {
+             const pool = fetchDraftPool(1, cards.map(c => c.name), cards[expensiveIdx].cost - 0.2);
+             if(pool.length > 0) cards[expensiveIdx] = pool[0];
+        }
+        safetyAttempts++;
     }
   };
 
@@ -160,7 +211,17 @@ export default function Play() {
     const newResults = {};
     finalHand.forEach((player, index) => {
        const key = `${player.id}-${index}`;
-       newResults[key] = getPlayerGameLog(player);
+       let log = getPlayerGameLog(player);
+       if (EASY_MODE) {
+           const projected = (player.cost || 0) * 10;
+           if (log.score < projected * 0.9) {
+               const retryLog = getPlayerGameLog(player);
+               if (retryLog.score > log.score) {
+                   log = retryLog;
+               }
+           }
+       }
+       newResults[key] = log;
     });
     setResults(newResults);
     setRunningScore(0);
@@ -182,7 +243,6 @@ export default function Play() {
        } else { 
           t = setTimeout(() => { 
              const finalTotal = Object.values(results).reduce((a, b) => a + b.score, 0);
-             
              let mult = 0; let lbl = "LOSS"; let clr = "text-slate-500";
              if (finalTotal >= 280) { mult=100; lbl="JACKPOT"; clr="text-yellow-400"; }
              else if (finalTotal >= 250) { mult=15; lbl="LEGENDARY"; clr="text-purple-400"; }
@@ -190,16 +250,11 @@ export default function Play() {
              else if (finalTotal >= 190) { mult=2; lbl="WINNER"; clr="text-blue-400"; }
              else if (finalTotal >= 165) { mult=0.5; lbl="SAVER"; clr="text-slate-400"; }
              
-             if (mult > 0) { 
-                 updateBankroll(Math.floor(10 * betMultiplier * mult)); 
-                 setShowEffects(true); 
-             }
+             if (mult > 0) { updateBankroll(Math.floor(10 * betMultiplier * mult)); setShowEffects(true); }
              setPayoutResult({label:lbl, color:clr});
-             
              const totalBadges = Object.values(results).reduce((acc, r) => acc + (r.badges ? r.badges.length : 0), 0);
-             const isWin = mult > 0;
-             recordGame(isWin, totalBadges);
-             setXpEarned(10 + (isWin ? 5 : 0));
+             recordGame(mult > 0, totalBadges);
+             setXpEarned(10 + (mult > 0 ? 5 : 0));
              setGamePhase('END'); 
           }, 800); 
        }
@@ -219,65 +274,68 @@ export default function Play() {
       {xpEarned && <XpFloater amount={xpEarned} />}
       {showRules && <PayoutInfo onClose={() => setShowRules(false)} />}
       
-      <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-2 pb-44 relative z-10">
-        
-        {/* TOP BAR */}
-        <div className="shrink-0 w-full flex justify-center mt-4 mb-4 relative z-30">
-            <JackpotBar addAmount={jackpotContribution} />
-        </div>
-
+      <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-2 pb-64 relative z-10">
+        <div className="shrink-0 w-full flex justify-center mt-4 mb-4 relative z-30"><JackpotBar addAmount={jackpotContribution} /></div>
         <div className="flex-1 flex flex-col items-center justify-start min-h-0 relative z-20">
-           
            <div className="w-full grid grid-cols-5 gap-2">
               {hand.length === 0 ? 
-                 Array.from({length:5}).map((_,i) => (
-                    <div key={i} className="aspect-[3/5]"><LiveCard isFaceDown={true}/></div>
-                 )) 
+                 Array.from({length:5}).map((_,i) => <div key={i} className="aspect-[3/5]"><LiveCard isFaceDown={true}/></div>) 
               : 
-                 hand.map((p,i) => (
-                    <div key={`${p.id}-${i}`} className="aspect-[3/5]">
-                        <LiveCard 
-                            player={p} 
-                            isHeld={heldIndices.includes(i)} 
-                            onToggle={() => toggleHold(i)} 
-                            finalScore={getRes(i)} 
-                            isFaceDown={isFaceDown(i)} 
-                        />
-                    </div>
-                 ))
+                 hand.map((p,i) => <div key={`${p.id}-${i}`} className="aspect-[3/5]"><LiveCard player={p} isHeld={heldIndices.includes(i)} onToggle={() => toggleHold(i)} finalScore={getRes(i)} isFaceDown={isFaceDown(i)} /></div>)
               }
            </div>
-           
-           {hand.length > 0 && <div className="mt-4"><BadgeLegend /></div>}
         </div>
       </div>
 
       <div className="fixed bottom-0 left-0 w-full bg-slate-950 border-t border-slate-900 p-4 pb-8 z-50 shadow-2xl">
         <div className="max-w-xl mx-auto flex flex-col gap-3">
-           <div className="flex items-center justify-between h-12 bg-slate-900 rounded-xl border border-slate-800 px-3 relative">
-             <div className="flex items-center gap-4">
-               <div className="flex flex-col leading-none"><span className="text-[9px] text-slate-500 font-bold uppercase">Cap</span><span className="text-white font-mono font-bold text-xs">$15.0</span></div>
-               <div className="w-px h-6 bg-slate-700"></div>
-               <div className="flex flex-col leading-none"><span className="text-[9px] text-slate-500 font-bold uppercase">Used</span><span className={`font-mono font-bold text-xs ${usedSalary > 15 ? 'text-red-500' : 'text-white'}`}>{usedSalary.toFixed(1)}</span></div>
-               <div className="w-px h-6 bg-slate-700"></div>
-               <div className="flex flex-col leading-none"><span className="text-[9px] text-slate-500 font-bold uppercase">Rem</span><span className={`font-mono font-bold text-xs ${remainingCap < 0 ? 'text-red-500' : 'text-green-400'}`}>{Math.max(0, remainingCap).toFixed(1)}</span></div>
-             </div>
-             <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">{gamePhase === 'DEALT' && <span className="text-orange-400 text-[10px] font-bold animate-pulse">HOLD CARDS</span>}{gamePhase === 'END' && payoutResult && <span className={`text-[10px] font-black uppercase ${payoutResult.color} animate-bounce`}>{payoutResult.label}</span>}</div>
+           
+           {/* --- FOOTER BAR WITH LEGEND --- */}
+           <div className="flex items-center justify-between h-16 bg-slate-900 rounded-xl border border-slate-800 px-2 relative overflow-hidden">
              
-             {/* TEAM FP + INFO BUTTON */}
-             <div className="flex items-center gap-2 pl-3 border-l border-slate-800 relative">
-                <button 
-                  onClick={() => setShowRules(true)}
-                  className="w-5 h-5 rounded-full border border-slate-600 flex items-center justify-center text-[10px] text-slate-400 hover:text-white hover:border-slate-400 transition-colors"
-                >
-                  ?
-                </button>
-                <div className="flex flex-col items-end leading-none">
-                    <span className="text-[9px] text-orange-400 font-black uppercase tracking-wider">TEAM FP</span>
-                    <span className="text-2xl font-mono font-black text-white">
-                        <TeamScoreRoller value={runningScore} />
-                    </span>
+             {/* LEFT: BUDGET */}
+             <div className="flex flex-col leading-tight min-w-[70px]">
+               <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">BUDGET</span>
+               <div className="flex items-baseline gap-1">
+                 <span className={`font-mono font-bold text-base ${usedSalary > 15 ? 'text-red-500' : 'text-white'}`}>${usedSalary.toFixed(1)}</span>
+                 <span className={`font-mono font-bold text-[10px] ${remainingCap < 0 ? 'text-red-500' : 'text-green-500'}`}>(${Math.max(0, remainingCap).toFixed(1)})</span>
+               </div>
+             </div>
+
+             {/* CENTER: ACTION / WIN (Reduced width to fit legend) */}
+             <div className="absolute left-1/2 -translate-x-1/2 top-0 h-full flex items-center justify-center w-full max-w-[140px]">
+                {gamePhase === 'DEALT' && (
+                  <span className="text-orange-400 text-[9px] font-black uppercase tracking-[0.1em] animate-pulse whitespace-nowrap bg-black/60 px-2 py-1 rounded-full border border-orange-500/30">
+                    HOLD AND DRAW
+                  </span>
+                )}
+                {gamePhase === 'END' && payoutResult && (
+                   <WinText label={payoutResult.label} color={payoutResult.color} />
+                )}
+             </div>
+
+             {/* RIGHT: TEAM FP + LEGEND */}
+             <div className="flex items-center gap-2 border-l border-slate-800/50 pl-2">
+                
+                {/* Score */}
+                <div className="flex flex-col items-end leading-tight">
+                    <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-blue-400 font-black uppercase tracking-widest">TEAM FP</span>
+                        <button onClick={() => setShowRules(true)} className="w-3 h-3 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[8px] text-slate-400 hover:text-white hover:border-slate-400">?</button>
+                    </div>
+                    <span className="text-xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
                 </div>
+
+                {/* LEGEND GRID (3x2) */}
+                <div className="grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
+                    {badgeList.map((b, i) => (
+                        <div key={i} className="flex items-center gap-0.5" title={b.label}>
+                            <span className="text-[10px]">{b.emoji}</span>
+                            <span className="text-[6px] text-slate-400 font-bold uppercase tracking-tight">{b.label}</span>
+                        </div>
+                    ))}
+                </div>
+
              </div>
            </div>
            
