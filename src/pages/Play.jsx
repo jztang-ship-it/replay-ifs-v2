@@ -1,15 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import { useBankroll } from '../context/BankrollContext';
 import LiveCard from '../components/game/LiveCard'; 
 import MoneyRain from '../components/effects/MoneyRain';
 import JackpotBar from '../components/game/JackpotBar';
 import BadgeLegend from '../components/game/BadgeLegend';
+import PayoutInfo from '../components/game/PayoutInfo'; 
 import { fetchDraftPool, getPlayerGameLog } from '../data/real_nba_db';
 
-const RollingNumber = ({ value }) => {
+// --- FIXED TEAM SCORE ROLLER ---
+const TeamScoreRoller = ({ value }) => {
   const [display, setDisplay] = useState(0);
-  useEffect(() => { setDisplay(value); }, [value]);
+  const startVal = useRef(0); // Memorize where we stopped last time
+
+  useEffect(() => {
+    // If value reset to 0 (new game), reset instantly without animation
+    if (value === 0) {
+      setDisplay(0);
+      startVal.current = 0;
+      return;
+    }
+
+    const start = startVal.current;
+    const end = value;
+    
+    // If no change, do nothing
+    if (start === end) return;
+
+    const duration = 1000;
+    let startTime;
+
+    const animate = (time) => {
+      if (!startTime) startTime = time;
+      const progress = Math.min((time - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3); // Cubic ease out
+      
+      const current = start + (end - start) * ease;
+      setDisplay(current);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Animation done, save this as the new start point
+        startVal.current = end;
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [value]);
+
   return <span>{display.toLocaleString(undefined, { maximumFractionDigits: 1 })}</span>;
 };
 
@@ -25,7 +64,7 @@ const XpFloater = ({ amount }) => (
 export default function Play() {
   const { 
     bankroll, updateBankroll, 
-    recordGame, recordRedraw, 
+    recordGame, 
   } = useBankroll(); 
   
   const [hand, setHand] = useState([]);
@@ -36,6 +75,8 @@ export default function Play() {
   const [showEffects, setShowEffects] = useState(false);
   const [xpEarned, setXpEarned] = useState(null);
   
+  const [showRules, setShowRules] = useState(false);
+
   const [gamePhase, setGamePhase] = useState('START'); 
   const [sequencerIndex, setSequencerIndex] = useState(-1);
   const [runningScore, setRunningScore] = useState(0);
@@ -176,9 +217,15 @@ export default function Play() {
     <PageContainer>
       {showEffects && payoutResult && <MoneyRain tierLabel={payoutResult.label} />}
       {xpEarned && <XpFloater amount={xpEarned} />}
+      {showRules && <PayoutInfo onClose={() => setShowRules(false)} />}
       
       <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-2 pb-44 relative z-10">
-        <div className="shrink-0 w-full flex justify-center mt-4 mb-4 relative z-30"><JackpotBar addAmount={jackpotContribution} /></div>
+        
+        {/* TOP BAR */}
+        <div className="shrink-0 w-full flex justify-center mt-4 mb-4 relative z-30">
+            <JackpotBar addAmount={jackpotContribution} />
+        </div>
+
         <div className="flex-1 flex flex-col items-center justify-start min-h-0 relative z-20">
            
            <div className="w-full grid grid-cols-5 gap-2">
@@ -216,9 +263,21 @@ export default function Play() {
                <div className="flex flex-col leading-none"><span className="text-[9px] text-slate-500 font-bold uppercase">Rem</span><span className={`font-mono font-bold text-xs ${remainingCap < 0 ? 'text-red-500' : 'text-green-400'}`}>{Math.max(0, remainingCap).toFixed(1)}</span></div>
              </div>
              <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">{gamePhase === 'DEALT' && <span className="text-orange-400 text-[10px] font-bold animate-pulse">HOLD CARDS</span>}{gamePhase === 'END' && payoutResult && <span className={`text-[10px] font-black uppercase ${payoutResult.color} animate-bounce`}>{payoutResult.label}</span>}</div>
-             <div className="flex flex-col items-end leading-none pl-3 border-l border-slate-800 relative">
-                <span className="text-[9px] text-orange-400 font-black uppercase tracking-wider">TEAM FP</span>
-                <span className="text-2xl font-mono font-black text-white"><RollingNumber value={runningScore} /></span>
+             
+             {/* TEAM FP + INFO BUTTON */}
+             <div className="flex items-center gap-2 pl-3 border-l border-slate-800 relative">
+                <button 
+                  onClick={() => setShowRules(true)}
+                  className="w-5 h-5 rounded-full border border-slate-600 flex items-center justify-center text-[10px] text-slate-400 hover:text-white hover:border-slate-400 transition-colors"
+                >
+                  ?
+                </button>
+                <div className="flex flex-col items-end leading-none">
+                    <span className="text-[9px] text-orange-400 font-black uppercase tracking-wider">TEAM FP</span>
+                    <span className="text-2xl font-mono font-black text-white">
+                        <TeamScoreRoller value={runningScore} />
+                    </span>
+                </div>
              </div>
            </div>
            
