@@ -1,14 +1,9 @@
-// src/components/layout/PageContainer.jsx
 import React from 'react';
 
-export default function PageContainer({ children, className = '' }) {
+export default function PageContainer({ children }) {
   return (
-    // THE HARD RULES:
-    // 1. h-screen w-screen: Forces app to be mobile size, no scrolling the whole window.
-    // 2. pt-[70px]: AUTOMATICALLY clears your Top Header (no more squeezing).
-    // 3. bg-gray-900: Sets the standard background color.
-    // 4. overflow-hidden: Prevents weird scrollbars appearing on the body.
-    <div className={`h-screen w-screen bg-gray-900 pt-[70px] overflow-hidden flex flex-col ${className}`}>
+    // Relative positioning ensures z-index works, but low z-index keeps it below header
+    <div className="relative w-full min-h-full animate-fade-in z-0">
       {children}
     </div>
   );

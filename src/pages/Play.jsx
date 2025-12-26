@@ -4,7 +4,6 @@ import { useBankroll } from '../context/BankrollContext';
 import LiveCard from '../components/game/LiveCard'; 
 import MoneyRain from '../components/effects/MoneyRain';
 import JackpotBar from '../components/game/JackpotBar';
-// REMOVED: BadgeLegend import (Moved inside footer)
 import PayoutInfo from '../components/game/PayoutInfo'; 
 import { fetchDraftPool, getPlayerGameLog } from '../data/real_nba_db';
 
@@ -30,30 +29,15 @@ const TeamScoreRoller = ({ value }) => {
   return <span>{display.toLocaleString(undefined, { maximumFractionDigits: 1 })}</span>;
 };
 
-const XpFloater = ({ amount }) => (
-  <div className="fixed top-20 right-4 pointer-events-none z-[110] animate-bounce-up">
-    <span className="text-xs font-black text-blue-400 drop-shadow-md bg-slate-900/90 px-2 py-1 rounded border border-blue-500/30">+{amount} XP</span>
-  </div>
-);
-
 const WinText = ({ label, color }) => {
   const safeColor = color || "text-white"; 
-  const bgClass = safeColor.includes('text-') ? safeColor.replace('text-', 'bg-') : 'bg-white';
   const isLoss = label === 'LOSS';
   
   return (
-    <div className="relative flex flex-col items-center justify-center z-50">
-      {!isLoss && (
-        <div className={`absolute inset-0 blur-xl opacity-50 ${bgClass} opacity-50 animate-pulse scale-150 rounded-full`}></div>
-      )}
-      <span className={`relative text-3xl font-black italic tracking-tighter uppercase drop-shadow-lg ${safeColor} ${!isLoss ? 'animate-bounce scale-110' : ''}`}>
-        {label}{!isLoss && " !!!"}
-      </span>
-      {!isLoss && (
-        <span className="relative text-[10px] text-white tracking-[0.5em] font-bold uppercase opacity-90 mt-1 animate-pulse">
-          PAYOUT WINNER
-        </span>
-      )}
+    <div className="relative flex flex-col items-center justify-center z-50 h-full">
+      {!isLoss && <div className={`absolute inset-0 blur-xl opacity-50 ${safeColor.replace('text-', 'bg-')} animate-pulse scale-150 rounded-full`}></div>}
+      <span className={`relative text-4xl font-black italic tracking-tighter uppercase drop-shadow-lg ${safeColor} ${!isLoss ? 'animate-bounce scale-110' : ''}`}>{label}</span>
+      {/* REMOVED: "PAYOUT WINNER" line to give more space */}
     </div>
   );
 };
@@ -67,7 +51,6 @@ export default function Play() {
   const [betMultiplier, setBetMultiplier] = useState(1);
   const [payoutResult, setPayoutResult] = useState(null); 
   const [showEffects, setShowEffects] = useState(false);
-  const [xpEarned, setXpEarned] = useState(null);
   const [showRules, setShowRules] = useState(false);
 
   const [gamePhase, setGamePhase] = useState('START'); 
@@ -76,7 +59,6 @@ export default function Play() {
   const [jackpotContribution, setJackpotContribution] = useState(0);
   
   const SALARY_CAP = 15.0;
-  const EASY_MODE = true; 
   const MIN_TARGET = 14.8; 
 
   const usedSalary = gamePhase === 'DEALT' 
@@ -84,19 +66,11 @@ export default function Play() {
     : hand.reduce((acc, p) => acc + p.cost, 0);
   const remainingCap = SALARY_CAP - usedSalary;
 
-  // --- COMPACT BADGE LIST FOR FOOTER ---
-  // Format: 3 Columns x 2 Rows
+  // --- HARDCODED BADGE LIST FOR FOOTER ---
   const badgeList = [
     { label: "FIRE", emoji: "🔥" }, { label: "TRIP", emoji: "👑" }, { label: "DBL", emoji: "✌️" },
     { label: "5x5", emoji: "🖐️" }, { label: "QUAD", emoji: "🦕" }, { label: "LOCK", emoji: "🔒" }
   ];
-
-  useEffect(() => {
-    if (xpEarned) {
-      const timer = setTimeout(() => setXpEarned(null), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [xpEarned]);
 
   const handleDeal = () => {
     if (bankroll < 10) updateBankroll(1000); 
@@ -105,12 +79,10 @@ export default function Play() {
 
     updateBankroll(-totalBet);
     setJackpotContribution(totalBet * 0.05); setTimeout(() => setJackpotContribution(0), 100);
-    setPayoutResult(null); setShowEffects(false); setXpEarned(null); setRunningScore(0); setResults({}); setHeldIndices([]);
+    setPayoutResult(null); setShowEffects(false); setRunningScore(0); setResults({}); setHeldIndices([]);
     
     const pool = fetchDraftPool(60, [], 15.0); 
     let initialHand = [];
-    
-    // Star-First Dealing
     const stars = pool.filter(p => p.cost >= 4.50);
     const star = stars.length > 0 ? stars[Math.floor(Math.random() * stars.length)] : pool.sort((a,b)=>b.cost-a.cost)[0];
     initialHand.push(star);
@@ -132,7 +104,6 @@ export default function Play() {
     const keptCards = heldIndices.map(i => hand[i]);
     const heldNames = keptCards.map(c => c.name);
     const slotsNeeded = 5 - heldIndices.length;
-    
     const replacements = fetchDraftPool(slotsNeeded, heldNames, SALARY_CAP); 
     
     let nextHand = [...hand];
@@ -157,12 +128,10 @@ export default function Play() {
     while (attempts < MAX_ATTEMPTS) {
         total = getTotal();
         if (total <= maxCap && total >= MIN_TARGET) break;
-
         if (total > maxCap) {
             let expensiveIdx = -1; let maxCost = -1;
             cards.forEach((c, i) => {
-                if (lockedIndices.includes(i)) return;
-                if (c.cost > maxCost) { maxCost = c.cost; expensiveIdx = i; }
+                if (!lockedIndices.includes(i) && c.cost > maxCost) { maxCost = c.cost; expensiveIdx = i; }
             });
             if (expensiveIdx !== -1) {
                 const overflow = total - maxCap;
@@ -170,40 +139,18 @@ export default function Play() {
                 const pool = fetchDraftPool(1, cards.map(c => c.name), Math.max(0.5, targetCost));
                 if (pool.length > 0) cards[expensiveIdx] = pool[0];
             }
-        } 
-        else if (total < MIN_TARGET) {
+        } else if (total < MIN_TARGET) {
             let cheapIdx = -1; let minCost = 999;
             cards.forEach((c, i) => {
                 if (!lockedIndices.includes(i) && c.cost < minCost) { minCost = c.cost; cheapIdx = i; }
             });
             if (cheapIdx !== -1) {
                 const currentCost = cards[cheapIdx].cost;
-                const roomAvailable = maxCap - total;
-                const targetMax = currentCost + roomAvailable;
-                const pool = fetchDraftPool(1, cards.map(c => c.name), targetMax);
-                if (pool.length > 0) {
-                    const candidate = pool[0];
-                    const potentialTotal = total - currentCost + candidate.cost;
-                    if (candidate.cost > currentCost && potentialTotal <= maxCap + 0.001) {
-                        cards[cheapIdx] = candidate;
-                    }
-                }
+                const pool = fetchDraftPool(1, cards.map(c => c.name), maxCap); 
+                if (pool.length > 0 && (total - currentCost + pool[0].cost) <= maxCap) cards[cheapIdx] = pool[0];
             }
         }
         attempts++;
-    }
-
-    let safetyAttempts = 0;
-    while (getTotal() > maxCap && safetyAttempts < 50) {
-        let expensiveIdx = -1; let maxCost = -1;
-        cards.forEach((c, i) => {
-             if (!lockedIndices.includes(i) && c.cost > maxCost) { maxCost = c.cost; expensiveIdx = i; }
-        });
-        if (expensiveIdx !== -1) {
-             const pool = fetchDraftPool(1, cards.map(c => c.name), cards[expensiveIdx].cost - 0.2);
-             if(pool.length > 0) cards[expensiveIdx] = pool[0];
-        }
-        safetyAttempts++;
     }
   };
 
@@ -211,17 +158,7 @@ export default function Play() {
     const newResults = {};
     finalHand.forEach((player, index) => {
        const key = `${player.id}-${index}`;
-       let log = getPlayerGameLog(player);
-       if (EASY_MODE) {
-           const projected = (player.cost || 0) * 10;
-           if (log.score < projected * 0.9) {
-               const retryLog = getPlayerGameLog(player);
-               if (retryLog.score > log.score) {
-                   log = retryLog;
-               }
-           }
-       }
-       newResults[key] = log;
+       newResults[key] = getPlayerGameLog(player);
     });
     setResults(newResults);
     setRunningScore(0);
@@ -248,13 +185,11 @@ export default function Play() {
              else if (finalTotal >= 250) { mult=15; lbl="LEGENDARY"; clr="text-purple-400"; }
              else if (finalTotal >= 220) { mult=5; lbl="BIG WIN"; clr="text-green-400"; }
              else if (finalTotal >= 190) { mult=2; lbl="WINNER"; clr="text-blue-400"; }
-             else if (finalTotal >= 165) { mult=0.5; lbl="SAVER"; clr="text-slate-400"; }
              
              if (mult > 0) { updateBankroll(Math.floor(10 * betMultiplier * mult)); setShowEffects(true); }
              setPayoutResult({label:lbl, color:clr});
              const totalBadges = Object.values(results).reduce((acc, r) => acc + (r.badges ? r.badges.length : 0), 0);
              recordGame(mult > 0, totalBadges);
-             setXpEarned(10 + (mult > 0 ? 5 : 0));
              setGamePhase('END'); 
           }, 800); 
        }
@@ -262,7 +197,7 @@ export default function Play() {
     return () => clearTimeout(t);
   }, [gamePhase, sequencerIndex]);
 
-  const handleReplay = () => { setHand([]); setGamePhase('START'); setRunningScore(0); setPayoutResult(null); setXpEarned(null); };
+  const handleReplay = () => { setHand([]); setGamePhase('START'); setRunningScore(0); setPayoutResult(null); };
   const toggleHold = (i) => { if (gamePhase === 'DEALT') setHeldIndices(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]); };
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
   const isFaceDown = (i) => (gamePhase === 'START') || (gamePhase === 'DEALING' && i > sequencerIndex) || (gamePhase === 'DRAWING' && !heldIndices.includes(i)) || (gamePhase === 'REVEALING' && i > sequencerIndex && !heldIndices.includes(i));
@@ -271,10 +206,9 @@ export default function Play() {
   return (
     <PageContainer>
       {showEffects && payoutResult && <MoneyRain tierLabel={payoutResult.label} />}
-      {xpEarned && <XpFloater amount={xpEarned} />}
       {showRules && <PayoutInfo onClose={() => setShowRules(false)} />}
       
-      <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-2 pb-64 relative z-10">
+      <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-2 pb-80 relative z-10">
         <div className="shrink-0 w-full flex justify-center mt-4 mb-4 relative z-30"><JackpotBar addAmount={jackpotContribution} /></div>
         <div className="flex-1 flex flex-col items-center justify-start min-h-0 relative z-20">
            <div className="w-full grid grid-cols-5 gap-2">
@@ -289,11 +223,7 @@ export default function Play() {
 
       <div className="fixed bottom-0 left-0 w-full bg-slate-950 border-t border-slate-900 p-4 pb-8 z-50 shadow-2xl">
         <div className="max-w-xl mx-auto flex flex-col gap-3">
-           
-           {/* --- FOOTER BAR WITH LEGEND --- */}
            <div className="flex items-center justify-between h-16 bg-slate-900 rounded-xl border border-slate-800 px-2 relative overflow-hidden">
-             
-             {/* LEFT: BUDGET */}
              <div className="flex flex-col leading-tight min-w-[70px]">
                <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">BUDGET</span>
                <div className="flex items-baseline gap-1">
@@ -302,22 +232,12 @@ export default function Play() {
                </div>
              </div>
 
-             {/* CENTER: ACTION / WIN (Reduced width to fit legend) */}
              <div className="absolute left-1/2 -translate-x-1/2 top-0 h-full flex items-center justify-center w-full max-w-[140px]">
-                {gamePhase === 'DEALT' && (
-                  <span className="text-orange-400 text-[9px] font-black uppercase tracking-[0.1em] animate-pulse whitespace-nowrap bg-black/60 px-2 py-1 rounded-full border border-orange-500/30">
-                    HOLD AND DRAW
-                  </span>
-                )}
-                {gamePhase === 'END' && payoutResult && (
-                   <WinText label={payoutResult.label} color={payoutResult.color} />
-                )}
+                {gamePhase === 'DEALT' && <span className="text-orange-400 text-[9px] font-black uppercase tracking-[0.1em] animate-pulse whitespace-nowrap bg-black/60 px-2 py-1 rounded-full border border-orange-500/30">HOLD AND DRAW</span>}
+                {gamePhase === 'END' && payoutResult && <WinText label={payoutResult.label} color={payoutResult.color} />}
              </div>
 
-             {/* RIGHT: TEAM FP + LEGEND */}
              <div className="flex items-center gap-2 border-l border-slate-800/50 pl-2">
-                
-                {/* Score */}
                 <div className="flex flex-col items-end leading-tight">
                     <div className="flex items-center gap-1">
                         <span className="text-[9px] text-blue-400 font-black uppercase tracking-widest">TEAM FP</span>
@@ -325,8 +245,6 @@ export default function Play() {
                     </div>
                     <span className="text-xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
                 </div>
-
-                {/* LEGEND GRID (3x2) */}
                 <div className="grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
                     {badgeList.map((b, i) => (
                         <div key={i} className="flex items-center gap-0.5" title={b.label}>
@@ -335,7 +253,6 @@ export default function Play() {
                         </div>
                     ))}
                 </div>
-
              </div>
            </div>
            

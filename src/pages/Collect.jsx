@@ -1,194 +1,163 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import PageContainer from '../components/layout/PageContainer';
-import { useBankroll, VIP_TIERS } from '../context/BankrollContext';
+import { useBankroll } from '../context/BankrollContext';
 
-// --- COMPONENTS ---
-const ProgressBar = ({ current, target, color = "bg-blue-500" }) => {
-  const pct = Math.min(100, (current / target) * 100);
+const VIP_LEVELS = [
+  { id: 1, name: "ROOKIE", minXp: 0, benefit: "Daily Missions", color: "text-slate-400" },
+  { id: 2, name: "PROSPECT", minXp: 500, benefit: "+$100 Rank Bonus", color: "text-green-400" },
+  { id: 3, name: "PRO", minXp: 2000, benefit: "+5% XP Boost", color: "text-blue-400" },
+  { id: 4, name: "VETERAN", minXp: 7500, benefit: "Access High-Roller Tasks", color: "text-purple-400" },
+  { id: 5, name: "ALL-STAR", minXp: 20000, benefit: "1.1x Win Multiplier", color: "text-orange-400" },
+  { id: 6, name: "MVP", minXp: 50000, benefit: "Daily Loss Rebate (5%)", color: "text-yellow-400" },
+  { id: 7, name: "LEGEND", minXp: 100000, benefit: "Revenue Share Pool", color: "text-red-500" }
+];
+
+const TaskCard = ({ task, onClaim, isClaimed }) => {
+  const progressPercent = Math.min(100, (task.current / task.target) * 100);
+  const isComplete = task.current >= task.target;
+
   return (
-    <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2">
-      <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${pct}%` }}></div>
+    <div className={`relative overflow-hidden rounded-xl border p-3 transition-all ${isComplete ? 'bg-slate-800/90 border-blue-500/50 shadow-lg shadow-blue-900/20' : 'bg-slate-900/50 border-slate-800'}`}>
+      <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-600 to-purple-500 transition-all duration-1000" style={{ width: `${progressPercent}%` }} />
+      <div className="flex justify-between items-center relative z-10">
+        <div className="flex gap-3 items-center">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-inner ${isComplete ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-600'}`}>
+            {task.icon}
+          </div>
+          <div>
+            <h3 className={`text-[10px] font-black uppercase tracking-wider ${isComplete ? 'text-white' : 'text-slate-400'}`}>{task.title}</h3>
+            <p className="text-[9px] text-slate-500 font-medium line-clamp-1">{task.desc}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className={`text-[9px] font-mono ${isComplete ? 'text-green-400' : 'text-slate-500'}`}>
+                {Math.min(task.current, task.target)} / {task.target}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-[9px] font-black text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
+            +${task.reward}
+          </span>
+          {isClaimed ? (
+            <div className="flex items-center gap-1 text-green-400 mt-1">
+              <span className="text-xs">✔</span>
+              <span className="text-[8px] font-black uppercase tracking-widest">Done</span>
+            </div>
+          ) : (
+            <button 
+              onClick={() => onClaim(task)}
+              disabled={!isComplete}
+              className={`px-3 py-1.5 rounded-md text-[8px] font-black uppercase tracking-widest transition-all cursor-pointer relative z-50 ${
+                isComplete 
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg animate-pulse' 
+                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+              }`}
+            >
+              {isComplete ? 'CLAIM' : 'LOCKED'}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
 export default function Collect() {
-  const { 
-    bankroll, updateBankroll, xp, addXp, 
-    vipLevel, isGuest, registerUser, 
-    showLevelUp, setShowLevelUp,
-    dailyStats, claimDailyLogin 
-  } = useBankroll();
+  const { history, xp, claimReward, claimedRewards } = useBankroll();
+  const [tasks, setTasks] = useState([]);
+  const [activeTab, setActiveTab] = useState('DAILY');
 
-  const [activeTab, setActiveTab] = useState('MISSIONS'); 
-  const [claimedMissions, setClaimedMissions] = useState([]); // Track claimed IDs locally
+  // FIX: useMemo prevents the "Infinite Loop" by stabilizing the array reference
+  const safeHistory = useMemo(() => history || [], [history]);
+  const safeClaimed = useMemo(() => claimedRewards || [], [claimedRewards]);
 
-  // --- MISSION DEFINITIONS ---
-  // These read directly from 'dailyStats' to check progress
-  const MISSIONS = [
-    { 
-      id: "m_login", 
-      title: "Daily Check-In", 
-      desc: "Log in to Replay", 
-      icon: "📅", 
-      reward: 100, xp: 100,
-      current: dailyStats.loginClaimed ? 1 : 0, 
-      target: 1,
-      action: claimDailyLogin 
-    },
-    { 
-      id: "m_warmup", 
-      title: "Warm Up", 
-      desc: "Play 5 Hands", 
-      icon: "🃏", 
-      reward: 50, xp: 25,
-      current: dailyStats.handsPlayed, 
-      target: 5 
-    },
-    { 
-      id: "m_social", 
-      title: "The Voice", 
-      desc: "Post 3 Comments", 
-      icon: "🗣️", 
-      reward: 50, xp: 25,
-      current: dailyStats.posts, 
-      target: 3 
-    },
-    { 
-      id: "m_winner", 
-      title: "Winner's Circle", 
-      desc: "Win 3 Hands", 
-      icon: "🏆", 
-      reward: 100, xp: 50,
-      current: dailyStats.handsWon, 
-      target: 3 
-    }
-  ];
+  let currentIndex = 0;
+  for (let i = VIP_LEVELS.length - 1; i >= 0; i--) {
+    if (xp >= VIP_LEVELS[i].minXp) { currentIndex = i; break; }
+  }
 
-  // --- HELPERS ---
-  const handleClaim = (mission) => {
-    if (claimedMissions.includes(mission.id)) return;
+  useEffect(() => {
+    const wins = safeHistory.filter(h => h.result === 'WIN').length;
+    const totalGames = safeHistory.length;
     
-    // Execute reward
-    updateBankroll(mission.reward);
-    addXp(mission.xp);
+    const badgeCounts = { '🔥': 0, '👑': 0, '✌️': 0, '🖐️': 0, '🦕': 0, '🔒': 0 };
+    safeHistory.forEach(game => {
+      if(game.badges > 0) badgeCounts['🔥']++;
+      if(game.badges > 1) badgeCounts['✌️']++;
+      if(game.badges > 2) badgeCounts['👑']++;
+      if(game.badges > 3) badgeCounts['🔒']++;
+    });
     
-    // If it's the login mission, trigger the context action
-    if (mission.action) mission.action();
-    
-    // Mark locally as claimed
-    setClaimedMissions(prev => [...prev, mission.id]);
-  };
+    const uniqueIcons = Object.values(badgeCounts).filter(c => c > 0).length;
+    const social = { loginStreak: 2, daysLogged: 4, articlesRead: 1, comments: 2, posts: 1, replies: 0, chatEntries: 4, chatMsgs: 2 };
 
-  // --- RENDER ---
-  const currentTier = VIP_TIERS.find(t => t.lvl === vipLevel) || VIP_TIERS[0];
-  const nextTier = VIP_TIERS.find(t => t.lvl === vipLevel + 1);
-  const xpProgress = nextTier ? Math.min(100, ((xp - currentTier.min) / (nextTier.min - currentTier.min)) * 100) : 100;
+    const allTasks = [
+      { id: 'd_login', category: 'DAILY', title: "Check In", desc: "Log in today.", icon: "📅", reward: 50, current: 1, target: 1 },
+      { id: 'd_streak_2', category: 'DAILY', title: "Double Down", desc: "Login 2 days in a row.", icon: "🔥", reward: 100, current: social.loginStreak, target: 2 },
+      { id: 'd_play_1', category: 'DAILY', title: "First Tip", desc: "Play 1 hand today.", icon: "🏀", reward: 25, current: totalGames, target: 1 },
+      { id: 'd_play_5', category: 'DAILY', title: "Rotation Player", desc: "Play 5 hands.", icon: "🏀", reward: 100, current: totalGames, target: 5 },
+      { id: 'd_win_3', category: 'DAILY', title: "Winning Streak", desc: "Win 3 hands.", icon: "🏆", reward: 200, current: wins, target: 3 },
+      
+      { id: 's_underdog', category: 'SKILL', title: "The Underdog", desc: "Win with < $12 Payroll.", icon: "📉", reward: 300, current: 0, target: 1 },
+      { id: 's_sniper', category: 'SKILL', title: "Sniper", desc: "Win 3 hands in 5 mins.", icon: "⚡", reward: 500, current: 0, target: 1 },
+      
+      { id: 'i_fire', category: 'ICONS', title: "Catch Fire", desc: "Get 'On Fire' Icon.", icon: "🔥", reward: 50, current: badgeCounts['🔥'], target: 1 },
+      { id: 'i_trip', category: 'ICONS', title: "Triple Threat", desc: "Get 'Trip Dbl' Icon.", icon: "👑", reward: 150, current: badgeCounts['👑'], target: 1 },
+      { id: 'w_col_2', category: 'ICONS', title: "Collector I", desc: "Hit 2/6 Unique Icons.", icon: "🧩", reward: 200, current: uniqueIcons, target: 2 },
+      
+      { id: 'p_read_1', category: 'PULSE', title: "Student", desc: "Read 1 Article.", icon: "📰", reward: 25, current: social.articlesRead, target: 1 },
+      { id: 'c_enter_1', category: 'PULSE', title: "Lurker", desc: "Enter Game Chat.", icon: "🚪", reward: 25, current: social.chatEntries, target: 1 },
+    ];
+    setTasks(allTasks);
+  }, [safeHistory, xp]);
+
+  const handleClaim = (task) => { claimReward(task.id, task.reward, 'CASH'); };
+  
+  const filteredTasks = activeTab === 'DAILY' ? tasks.filter(t => t.category === 'DAILY') : 
+                        activeTab === 'SKILL' ? tasks.filter(t => t.category === 'SKILL') : 
+                        activeTab === 'ICONS' ? tasks.filter(t => t.category === 'ICONS') : 
+                        tasks.filter(t => t.category === 'PULSE');
 
   return (
     <PageContainer>
-      {/* Level Up Overlay */}
-      {showLevelUp && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in">
-          <div className="text-center p-8 border-2 border-yellow-500 rounded-2xl bg-slate-900">
-            <div className="text-6xl mb-4">🏆</div>
-            <h1 className="text-3xl font-black text-yellow-400 italic mb-2">{VIP_TIERS[showLevelUp].name}</h1>
-            <p className="text-white text-sm">You unlocked: <span className="font-bold">{VIP_TIERS[showLevelUp].perk}</span></p>
-            <button onClick={() => setShowLevelUp(null)} className="mt-6 bg-yellow-500 text-black font-bold px-8 py-3 rounded-full">CONTINUE</button>
-          </div>
-        </div>
-      )}
-
-      <div className="p-4 flex-1 overflow-y-auto pb-24">
-        {isGuest && (
-            <div className="bg-red-900/30 border border-red-500/50 p-4 rounded-xl mb-4 flex justify-between items-center">
-              <div className="text-red-200 text-xs">
-                <span className="font-bold block text-red-100 mb-1">⚠️ SPECTATOR MODE</span>
-                Progress resets on refresh.
-              </div>
-              <button onClick={registerUser} className="bg-red-600 text-white text-[10px] font-black px-4 py-2 rounded uppercase animate-pulse">Register</button>
-            </div>
-        )}
-
-        {/* HEADER STATS */}
-        <div className="bg-slate-900 rounded-2xl p-6 border border-slate-700 mb-6 relative overflow-hidden">
-            <div className="flex justify-between items-start mb-4 relative z-10">
-                <div>
-                    <h2 className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Current Status</h2>
-                    <h1 className={`text-3xl font-black italic uppercase ${currentTier.color} flex items-center gap-2`}>
-                        {currentTier.name} <span className="text-2xl">{currentTier.icon}</span>
-                    </h1>
-                </div>
-                <div className="text-right">
-                    <span className="text-2xl font-mono font-bold text-white">{vipLevel}</span>
-                    <span className="block text-[10px] text-gray-500 font-bold">LEVEL</span>
-                </div>
-            </div>
-            
-            {/* XP Bar */}
-            <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden mb-2 relative z-10">
-                <div className={`h-full ${currentTier.color.replace('text', 'bg')} transition-all duration-1000`} style={{ width: `${xpProgress}%` }}></div>
-            </div>
-            <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase relative z-10">
-                <span>{xp.toLocaleString()} SP</span>
-                <span>{nextTier ? `Next: ${nextTier.min.toLocaleString()}` : 'MAX'}</span>
-            </div>
+      <div className="flex flex-col min-h-screen px-4 pt-6 pb-32 max-w-xl mx-auto w-full relative z-0">
+        <div className="flex flex-col mb-4">
+          <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter">Collect Rewards</h1>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Complete missions • Earn Cash</p>
         </div>
 
-        {/* TABS */}
-        <div className="flex border-b border-gray-800 mb-4">
-          {['DAILY GOALS', 'VIP LADDER'].map(tab => (
-             <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 pb-3 text-xs font-bold tracking-widest ${activeTab === tab ? 'text-white border-b-2 border-orange-500' : 'text-gray-600'}`}>{tab}</button>
-          ))}
+        {/* LADDER */}
+        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 mb-6 relative">
+           <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Career Ladder</h3>
+           <div className="space-y-3 relative">
+             <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-slate-800 z-0"></div>
+             {VIP_LEVELS.map((level, i) => {
+               const isCurrent = i === currentIndex;
+               const isUnlocked = i <= currentIndex;
+               const isNext = i === currentIndex + 1;
+               if (i > currentIndex + 2) return null;
+               return (
+                 <div key={level.id} className={`relative z-10 flex items-center gap-3 p-3 rounded-lg border transition-all ${isCurrent ? 'bg-slate-800 border-blue-500/50 shadow-lg scale-[1.02]' : isNext ? 'bg-slate-900/50 border-slate-700' : isUnlocked ? 'bg-slate-900/20 border-transparent opacity-50' : 'bg-transparent border-transparent opacity-30'}`}>
+                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 shrink-0 ${isCurrent ? 'bg-blue-600 text-white border-white' : isUnlocked ? 'bg-slate-700 text-slate-400 border-slate-600' : 'bg-slate-900 text-slate-700 border-slate-800'}`}>{isUnlocked ? level.id : '🔒'}</div>
+                   <div className="flex-1">
+                     <div className="flex justify-between items-center"><span className={`text-[10px] font-black uppercase tracking-wider ${isCurrent ? 'text-white' : level.color}`}>{level.name}</span><span className="text-[9px] font-mono text-slate-500">{level.minXp.toLocaleString()} XP</span></div>
+                     <div className={`text-[10px] ${isCurrent ? 'text-white' : 'text-slate-500'}`}>{level.benefit}</div>
+                   </div>
+                 </div>
+               );
+             })}
+           </div>
         </div>
 
-        {/* CONTENT */}
-        <div className="space-y-3">
-            {activeTab === 'DAILY GOALS' && MISSIONS.map((m) => {
-                const isCompleted = m.current >= m.target;
-                const isClaimed = claimedMissions.includes(m.id) || (m.id === 'm_login' && dailyStats.loginClaimed);
-                
-                return (
-                    <div key={m.id} className={`p-4 rounded-xl flex justify-between items-center border border-gray-800 bg-gray-900/50 ${isClaimed ? 'opacity-40' : ''}`}>
-                        <div className="flex items-center gap-3">
-                            <div className="text-2xl w-10 text-center">{m.icon}</div>
-                            <div>
-                                <h4 className="text-sm font-bold text-white">{m.title}</h4>
-                                <div className="flex gap-2 text-[10px] font-bold mt-0.5">
-                                    <span className="text-orange-400">+{m.reward} 🪙</span>
-                                    <span className="text-blue-400">+{m.xp} SP</span>
-                                </div>
-                                {!isClaimed && <ProgressBar current={m.current} target={m.target} />}
-                            </div>
-                        </div>
-                        
-                        <div className="text-right">
-                            {isClaimed ? (
-                                <span className="text-gray-500 text-[10px] font-bold">DONE</span>
-                            ) : isCompleted ? (
-                                <button onClick={() => handleClaim(m)} className="bg-green-600 text-white text-[10px] font-bold px-4 py-2 rounded animate-pulse shadow-lg">CLAIM</button>
-                            ) : (
-                                <span className="text-gray-500 text-[10px] font-mono">{m.current}/{m.target}</span>
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
+        {/* TABS (Non-Sticky to fix Z-Index Trap) */}
+        <div className="flex p-1 bg-slate-900 rounded-lg mb-4 border border-slate-800 overflow-x-auto">
+          {['DAILY', 'SKILL', 'ICONS', 'PULSE'].map(tab => (<button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 px-2 text-[9px] font-black uppercase tracking-widest rounded-md transition-all whitespace-nowrap ${activeTab === tab ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>{tab}</button>))}
+        </div>
 
-            {activeTab === 'VIP LADDER' && VIP_TIERS.map((t) => (
-              <div key={t.lvl} className={`flex items-center gap-4 p-3 rounded-lg border transition-all ${vipLevel === t.lvl ? 'bg-slate-800 border-orange-500/50 shadow-lg scale-[1.02]' : 'bg-black border-slate-800 opacity-60'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${vipLevel >= t.lvl ? 'bg-green-900 text-green-400' : 'bg-slate-800 text-slate-500'}`}>
-                   {vipLevel > t.lvl ? '✓' : t.lvl}
-                </div>
-                <div className="flex-1">
-                   <h3 className={`font-bold text-sm uppercase ${t.color}`}>{t.name} {t.icon}</h3>
-                   <p className="text-[10px] text-gray-500">{t.perk}</p>
-                </div>
-                <div className="text-right">
-                   <span className="text-[10px] font-mono text-gray-600">{t.min.toLocaleString()} SP</span>
-                </div>
-              </div>
-            ))}
+        {/* LIST */}
+        <div className="flex flex-col gap-2">
+          {filteredTasks.map(task => (<TaskCard key={task.id} task={task} onClaim={handleClaim} isClaimed={safeClaimed.includes(task.id)} />))}
+          {filteredTasks.length === 0 && <div className="text-center py-12 text-slate-600 text-xs font-bold uppercase tracking-widest border border-dashed border-slate-800 rounded-xl">No active tasks.</div>}
         </div>
       </div>
     </PageContainer>

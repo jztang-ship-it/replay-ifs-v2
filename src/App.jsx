@@ -1,49 +1,37 @@
-// src/App.jsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
-import { BankrollProvider } from './context/BankrollContext'; 
+import { BankrollProvider } from './context/BankrollContext';
 
-// --- IMPORTS ---
-import Home from './pages/HomePage';
+// Import Pages
+import HomePage from './pages/HomePage';
 import Play from './pages/Play';
-import Pulse from './components/Pulse'; 
-import GameRoom from './pages/GameRoom'; // <--- 1. IMPORT ADDED
-import TopNav from './components/layout/TopNav';
-import MenuOverlay from './components/layout/MenuOverlay';
 import Collect from './pages/Collect';
+import Sync from './pages/Sync';
+import Pulse from './pages/Pulse'; 
 
-// Layout Helper
-const Layout = ({ children }) => {
-  return (
-    <>
-      <TopNav />
-      <MenuOverlay />
-      {children}
-    </>
-  );
-};
+// Import Navigation
+import TopNav from './components/layout/TopNav'; 
 
 export default function App() {
   return (
     <BankrollProvider>
       <Router>
-        <Layout>
-          <AnimatePresence mode="wait">
+        <div className="bg-slate-950 min-h-screen text-white font-sans selection:bg-blue-500/30">
+          
+          <TopNav /> 
+
+          {/* PT-16 matches the h-16 of the header perfectly */}
+          <div className="pt-16 relative z-0"> 
             <Routes>
-              {/* --- MAIN PAGES --- */}
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/play" element={<Play />} />
-              <Route path="/pulse" element={<Pulse />} />
               <Route path="/collect" element={<Collect />} />
-              
-              {/* --- 2. GAME ROOM ROUTE ADDED HERE --- */}
-              {/* This tells the app: "If URL has /game/ANYTHING, show GameRoom" */}
-              <Route path="/game/:id" element={<GameRoom />} />
-              
+              <Route path="/sync" element={<Sync />} />
+              <Route path="/pulse" element={<Pulse />} />
             </Routes>
-          </AnimatePresence>
-        </Layout>
+          </div>
+          
+        </div>
       </Router>
     </BankrollProvider>
   );
