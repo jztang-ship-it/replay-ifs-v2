@@ -17,8 +17,18 @@ const getTierStyle = (cost) => {
     return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500', grad: 'from-slate-800 to-slate-900' };
 };
 
-export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceDown = false }) {
-  if (!player || !player.id) {
+export default function LiveCard(props) {
+  // --- 1. UNWRAP LOGIC (The Fix) ---
+  // Sometimes data gets wrapped like { player: { id: 1... } }
+  // We check if 'props.player' has a property called 'player' or 'meta' inside it.
+  let player = props.player;
+  if (player && player.player) player = player.player; 
+  if (player && player.meta) player = player.meta; // Handle result objects passed as players
+
+  const { isHeld, onToggle, finalScore, isFaceDown = false } = props;
+
+  // 2. Ghost Check
+  if (!player || (!player.id && !player.name)) {
       return (
           <div className="relative w-full h-full perspective-1000 group">
              <div className="relative w-full h-full transition-all duration-500 transform-style-3d rotate-y-180"><CardBack /></div>
@@ -26,15 +36,16 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
       );
   }
 
-  // DATA SETUP
+  // 3. Data Setup
   const isResultPhase = !!finalScore;
   const meta = (finalScore && finalScore.meta) ? finalScore.meta : player;
   
-  const safeCost = meta.cost !== undefined ? meta.cost : 0;
+  // DEEP SEARCH for Cost & FP
+  const safeCost = meta.cost !== undefined ? meta.cost : (meta.price || 0);
   const tier = getTierStyle(safeCost);
 
-  // SCORE LOGIC: Fallback to multiple property names if 'avg_fp' is missing
-  const rawProj = player.avg_fp || player.fp || player.projected || 0;
+  // DEEP SEARCH for Proj FP
+  const rawProj = meta.avg_fp || meta.fp || meta.projected || player.avg_fp || 0;
   const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
@@ -43,6 +54,9 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
       if (!name) return "??";
       return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   };
+
+  // DEBUG: If Cost is 0, show us why (remove this after fix)
+  const isBroken = safeCost === 0 && rawProj === 0;
 
   return (
     <div 
@@ -54,7 +68,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
         {/* FRONT */}
         <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-xl border-2 ${isHeld ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : tier.border} flex flex-col overflow-hidden backface-hidden`}>
             
-            {/* IMAGE AREA - FIXED: Added referrerPolicy and strict z-indexing */}
+            {/* IMAGE AREA */}
             <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden min-h-0`}>
                 
                 {/* Fallback Initials */}
@@ -64,7 +78,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                     </span>
                 </div>
 
-                {/* Real Image: Added 'referrerPolicy' to bypass hotlink blocks */}
+                {/* Real Image */}
                 <img 
                     src={meta.image_url} 
                     alt={meta.name} 
@@ -95,21 +109,30 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                 )}
             </div>
 
-            {/* DATA FOOTER - FIXED: Added min-height to prevent collapse */}
+            {/* DATA FOOTER */}
             <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
-                <div className="flex items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full">
+                <div className="flex flex-col items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full">
                     
                     {/* LABEL & SCORE */}
-                    <span className={`text-[10px] font-black uppercase mr-2 tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>
-                        {isResultPhase ? 'FP' : 'PROJ'}
-                    </span>
-                    <span className={`text-lg md:text-xl font-mono font-black tracking-tighter ${
-                        isResultPhase 
-                            ? (isWin ? 'text-green-400' : 'text-red-400') 
-                            : 'text-white' 
-                    }`}>
-                        {displayScore.toFixed(1)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>
+                            {isResultPhase ? 'FP' : 'PROJ'}
+                        </span>
+                        <span className={`text-lg md:text-xl font-mono font-black tracking-tighter ${
+                            isResultPhase 
+                                ? (isWin ? 'text-green-400' : 'text-red-400') 
+                                : 'text-white' 
+                        }`}>
+                            {displayScore.toFixed(1)}
+                        </span>
+                    </div>
+
+                    {/* LAST RESORT DEBUGGER: If data is still missing, it prints the keys found */}
+                    {isBroken && (
+                        <div className="text-[5px] text-red-500 absolute bottom-0 bg-black w-full text-center">
+                            MISSING DATA. KEYS: {Object.keys(player).join(',')}
+                        </div>
+                    )}
 
                 </div>
             </div>
