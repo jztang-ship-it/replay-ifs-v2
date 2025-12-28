@@ -18,10 +18,10 @@ const getTierStyle = (cost) => {
 };
 
 export default function LiveCard(props) {
-  // 1. IMAGE STATE (This fixes the broken icon issue)
+  // IMAGE STATE
   const [imgError, setImgError] = useState(false);
 
-  // 2. UNWRAP LOGIC
+  // UNWRAP LOGIC
   let player = props.player;
   if (player && player.player) player = player.player; 
   if (player && player.meta) player = player.meta;
@@ -44,9 +44,9 @@ export default function LiveCard(props) {
   const safeCost = meta.cost !== undefined ? meta.cost : (meta.price || 0);
   const tier = getTierStyle(safeCost);
 
-  // PROJECTED FP LOOKUP (Try every possible name)
-  // We check: avg_fp, fp, projected, fppg
-  const rawProj = meta.avg_fp || meta.fp || meta.projected || meta.fppg || player.avg_fp || 0;
+  // --- THE FIX IS HERE ---
+  // Added 'meta.avg' to the front of the line!
+  const rawProj = meta.avg || meta.avg_fp || meta.fp || meta.projected || 0;
   
   const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
@@ -69,21 +69,21 @@ export default function LiveCard(props) {
             {/* IMAGE AREA */}
             <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden min-h-0`}>
                 
-                {/* LAYER 1: Initials (Always visible at bottom) */}
+                {/* LAYER 1: Initials */}
                 <div className="absolute inset-0 flex items-center justify-center z-0">
                     <span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">
                         {getInitials(meta.name)}
                     </span>
                 </div>
 
-                {/* LAYER 2: Real Image (Only render if NO ERROR) */}
+                {/* LAYER 2: Real Image */}
                 {!imgError && (
                     <img 
                         src={meta.image_url} 
                         alt={meta.name} 
                         referrerPolicy="no-referrer"
                         className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
-                        onError={() => setImgError(true)} // This triggers re-render to remove the broken tag
+                        onError={() => setImgError(true)}
                     />
                 )}
                 
@@ -100,7 +100,7 @@ export default function LiveCard(props) {
                     <span className="text-[9px] md:text-xs text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5 md:mb-1 line-clamp-1">{meta.team || "NBA"}</span>
                     <span className="text-[11px] md:text-sm text-white font-black uppercase italic tracking-tighter leading-none line-clamp-1 drop-shadow-md">{meta.name || "Unknown"}</span>
                 </div>
-
+                
                 {/* Hold Badge */}
                 {isHeld && (
                     <div className="absolute bottom-1 right-1 bg-yellow-400 text-black text-[8px] md:text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-lg animate-pulse z-30">
@@ -125,14 +125,6 @@ export default function LiveCard(props) {
                             {displayScore.toFixed(1)}
                         </span>
                     </div>
-
-                    {/* --- AUTOPSY REPORT: THE TRUTH SERUM --- */}
-                    {/* Prints ALL data keys if score is missing */}
-                    {(!isResultPhase && displayScore === 0) && (
-                         <div className="text-[5px] text-green-400 leading-none text-left w-full px-1 break-all">
-                            {JSON.stringify(player).slice(0, 150)}
-                         </div>
-                    )}
 
                 </div>
             </div>
