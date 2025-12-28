@@ -25,7 +25,7 @@ export default function TopNav() {
         <Link to="/" className="flex items-center group">
             <div className="h-16 w-16 relative transition-transform group-hover:scale-105">
                 <img 
-                    src="/images/frenchie-v3.png" 
+                    src="/images/frenchie-live.png" 
                     alt="Replay Logo" 
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_2px_10px_rgba(255,255,255,0.15)]"
                 />
