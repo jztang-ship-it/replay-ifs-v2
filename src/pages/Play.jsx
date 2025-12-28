@@ -5,6 +5,14 @@ import LiveCard from '../components/game/LiveCard';
 import JackpotBar from '../components/game/JackpotBar';
 import { getAllPlayers, getPlayerGameLog } from '../data/real_nba_db';
 
+// --- HELPER: SAFE COST ---
+// Ensures we always get a number, even if data is messy
+const getCost = (p) => {
+    if (!p) return 0;
+    const val = p.cost || p.price || 0;
+    return parseFloat(val);
+};
+
 // --- HELPER: TEAM SCORE ROLLER ---
 const TeamScoreRoller = ({ value }) => {
   const [display, setDisplay] = useState(0);
@@ -48,48 +56,85 @@ export default function Play() {
   const [jackpotContribution, setJackpotContribution] = useState(0);
 
   const SALARY_CAP = 15.0;
-  
+   
   const badgeList = [
     { label: "FIRE", emoji: "🔥" }, { label: "TRIP", emoji: "👑" }, { label: "DBL", emoji: "✌️" },
     { label: "5x5", emoji: "🖐️" }, { label: "QUAD", emoji: "🦕" }, { label: "LOCK", emoji: "🔒" }
   ];
 
-  // --- HAND BUILDER (Same as before) ---
+  // --- HAND BUILDER (FIXED) ---
   const buildSmartHand = (lockedCards = []) => {
     const allPlayers = getAllPlayers();
+    
+    // Sort cheap to expensive for safe fallbacks
+    const sortedPlayers = [...allPlayers].sort((a, b) => getCost(a) - getCost(b));
+    const minCost = getCost(sortedPlayers[0]) || 0.5;
+
+    // Helper: Sum cost of current hand
+    const getCurrentTotal = (h) => h.reduce((sum, p) => sum + getCost(p), 0);
+
     const tryFill = (minTarget) => {
-        for (let attempt = 0; attempt < 10; attempt++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
             let currentHand = [...lockedCards];
-            let currentTotal = lockedCards.reduce((sum, p) => sum + (p ? p.cost : 0), 0);
+            let currentTotal = getCurrentTotal(currentHand);
             let success = true;
+
             for (let i = 0; i < 5; i++) {
-                if (currentHand[i]) continue; 
+                if (currentHand[i]) continue; // Skip locked cards
+
+                let slotsRemaining = 5 - i - 1;
                 let budgetRemaining = SALARY_CAP - currentTotal;
-                let slotsRemaining = 5 - i - 1; 
-                let maxSpend = budgetRemaining - (slotsRemaining * 0.5);
-                let candidates = allPlayers.filter(p => p.cost <= maxSpend && !currentHand.some(h => h && h.id === p.id));
+                
+                // CRITICAL FIX: Reserve budget for remaining slots
+                let maxSpend = budgetRemaining - (slotsRemaining * minCost);
+
+                // Candidates that fit budget and aren't already in hand
+                let candidates = allPlayers.filter(p => 
+                    getCost(p) <= maxSpend && 
+                    !currentHand.some(h => h && h.id === p.id)
+                );
+
                 if (candidates.length === 0) { success = false; break; }
-                candidates.sort((a, b) => b.cost - a.cost);
-                let topCandidates = candidates.slice(0, Math.max(1, Math.floor(candidates.length * 0.4)));
+
+                // Weighted random: Prefer higher cost to reach minTarget
+                candidates.sort((a, b) => getCost(b) - getCost(a));
+                let topCandidates = candidates.slice(0, Math.max(1, Math.floor(candidates.length * 0.5)));
                 let pick = topCandidates[Math.floor(Math.random() * topCandidates.length)];
+
                 currentHand[i] = pick;
-                currentTotal += pick.cost;
+                currentTotal += getCost(pick);
             }
-            if (success && currentTotal >= minTarget && currentTotal <= SALARY_CAP) return currentHand;
+
+            if (success && currentTotal <= SALARY_CAP) {
+                // If minTarget is provided, ensure we met it. Otherwise any valid hand works.
+                if (!minTarget || currentTotal >= minTarget) return currentHand;
+            }
         }
         return null;
     };
-    let result = tryFill(14.5);
+
+    // Strategy 1: Try to get a high value hand (Near Cap)
+    let result = tryFill(13.5);
     if (result) return result;
-    result = tryFill(13.0);
+
+    // Strategy 2: Try to get a medium value hand
+    result = tryFill(10.0);
     if (result) return result;
     
+    // Strategy 3: Try ANY valid hand
+    result = tryFill(0);
+    if (result) return result;
+
+    // Strategy 4: Panic Mode (The Safety Net)
+    // If all else fails, fill remaining slots with the CHEAPEST players.
+    // This prevents the $19.4 bust.
     let panicHand = [...lockedCards];
     for(let i=0; i<5; i++) {
         if(!panicHand[i]) {
             let usedIds = panicHand.map(p => p?.id);
-            let valid = allPlayers.filter(p => !usedIds.includes(p.id) && p.cost <= (SALARY_CAP - panicHand.reduce((a,b)=>a+(b?b.cost:0),0) - (4-i)*0.5));
-            panicHand[i] = valid[Math.floor(Math.random() * valid.length)] || allPlayers[0];
+            // Find cheapest player not in hand
+            let cheapest = sortedPlayers.find(p => !usedIds.includes(p.id));
+            panicHand[i] = cheapest || sortedPlayers[0];
         }
     }
     return panicHand;
@@ -102,12 +147,11 @@ export default function Play() {
     setJackpotContribution(totalBet * 0.05); 
     setTimeout(() => setJackpotContribution(0), 100);
     setPayoutResult(null); setShowEffects(false); setRunningScore(0); setResults({}); setHeldIndices([]);
+    
+    // Pass 5 undefineds to start fresh
     const handResult = buildSmartHand([undefined, undefined, undefined, undefined, undefined]);
-    if (!handResult || handResult.some(c => !c)) {
-        setHand(getAllPlayers().slice(0, 5)); 
-    } else {
-        setHand(handResult);
-    }
+    setHand(handResult);
+    
     setGamePhase('DEALING');
     setSequencerIndex(0);
   };
@@ -175,8 +219,9 @@ export default function Play() {
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
   const isFaceDown = (i) => (gamePhase === 'START') || (gamePhase === 'DEALING' && i > sequencerIndex) || (gamePhase === 'DRAWING' && !heldIndices.includes(i)) || (gamePhase === 'REVEALING' && i > sequencerIndex && !heldIndices.includes(i));
   
-  const totalHandCost = hand.reduce((acc, p) => acc + (p ? p.cost : 0), 0);
-  const heldCost = heldIndices.reduce((acc, idx) => acc + (hand[idx] ? hand[idx].cost : 0), 0);
+  // Recalculate cost for display (using Safe Cost)
+  const totalHandCost = hand.reduce((acc, p) => acc + getCost(p), 0);
+  const heldCost = heldIndices.reduce((acc, idx) => acc + getCost(hand[idx]), 0);
 
   let displayRemaining = SALARY_CAP;
   if (gamePhase === 'DEALT') {
@@ -198,9 +243,7 @@ export default function Play() {
         {/* SCROLL AREA */}
         <div className="flex-1 flex flex-col items-center justify-start md:justify-center relative z-20 min-h-0 w-full overflow-y-auto custom-scrollbar pt-2">
            
-           {/* DIAMOND LAYOUT: Flex wrap with centering */}
-           {/* On Desktop: standard grid (grid-cols-5) */}
-           {/* On Mobile: Flexbox for 2-1-2 */}
+           {/* DIAMOND LAYOUT */}
            <div className="w-full h-auto md:h-full md:max-h-[65vh] flex flex-wrap justify-center gap-2 px-2 md:grid md:grid-cols-5 md:gap-3 md:px-3 pb-20 md:pb-2">
               {hand.length === 0 ? 
                  Array.from({length:5}).map((_,i) => (
@@ -228,7 +271,7 @@ export default function Play() {
                     <div className="flex items-baseline gap-1">
                         <span className="font-mono font-black text-sm md:text-lg text-white">${SALARY_CAP.toFixed(1)}</span>
                         <span className={`font-mono font-bold text-[9px] md:text-[10px] ${displayRemaining < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                           ({displayRemaining >= 0 ? '+' : ''}{displayRemaining.toFixed(1)})
+                            ({displayRemaining >= 0 ? '+' : ''}{displayRemaining.toFixed(1)})
                         </span>
                     </div>
                 </div>
