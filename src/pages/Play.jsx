@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import { useBankroll } from '../context/BankrollContext';
 import LiveCard from '../components/game/LiveCard'; 
-import MoneyRain from '../components/effects/MoneyRain';
 import JackpotBar from '../components/game/JackpotBar';
-import PayoutInfo from '../components/game/PayoutInfo'; 
 import { getAllPlayers, getPlayerGameLog } from '../data/real_nba_db';
 
 // --- HELPER: TEAM SCORE ROLLER ---
@@ -56,7 +54,7 @@ export default function Play() {
     { label: "5x5", emoji: "🖐️" }, { label: "QUAD", emoji: "🦕" }, { label: "LOCK", emoji: "🔒" }
   ];
 
-  // --- HAND BUILDER ---
+  // --- HAND BUILDER (Same as before) ---
   const buildSmartHand = (lockedCards = []) => {
     const allPlayers = getAllPlayers();
     const tryFill = (minTarget) => {
@@ -177,7 +175,6 @@ export default function Play() {
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
   const isFaceDown = (i) => (gamePhase === 'START') || (gamePhase === 'DEALING' && i > sequencerIndex) || (gamePhase === 'DRAWING' && !heldIndices.includes(i)) || (gamePhase === 'REVEALING' && i > sequencerIndex && !heldIndices.includes(i));
   
-  // --- MATH ---
   const totalHandCost = hand.reduce((acc, p) => acc + (p ? p.cost : 0), 0);
   const heldCost = heldIndices.reduce((acc, idx) => acc + (hand[idx] ? hand[idx].cost : 0), 0);
 
@@ -198,13 +195,25 @@ export default function Play() {
           <JackpotBar addAmount={jackpotContribution} />
         </div>
         
-        {/* RESPONSIVE GRID: grid-cols-2 on mobile, md:grid-cols-5 on desktop */}
-        <div className="flex-1 flex flex-col items-center justify-center relative z-20 min-h-0 w-full overflow-y-auto custom-scrollbar">
-           <div className="w-full h-full max-h-[65vh] grid grid-cols-2 md:grid-cols-5 gap-2 px-2 md:px-3 pb-2">
+        {/* SCROLL AREA */}
+        <div className="flex-1 flex flex-col items-center justify-start md:justify-center relative z-20 min-h-0 w-full overflow-y-auto custom-scrollbar pt-2">
+           
+           {/* DIAMOND LAYOUT: Flex wrap with centering */}
+           {/* On Desktop: standard grid (grid-cols-5) */}
+           {/* On Mobile: Flexbox for 2-1-2 */}
+           <div className="w-full h-auto md:h-full md:max-h-[65vh] flex flex-wrap justify-center gap-2 px-2 md:grid md:grid-cols-5 md:gap-3 md:px-3 pb-20 md:pb-2">
               {hand.length === 0 ? 
-                 Array.from({length:5}).map((_,i) => <div key={i} className="h-full w-full"><LiveCard isFaceDown={true}/></div>) 
+                 Array.from({length:5}).map((_,i) => (
+                    <div key={i} className="w-[45%] md:w-full aspect-[3/4] md:aspect-auto md:h-full">
+                        <LiveCard isFaceDown={true}/>
+                    </div>
+                 )) 
               : 
-                 hand.map((p,i) => <div key={i} className="h-full w-full"><LiveCard player={p} isHeld={heldIndices.includes(i)} onToggle={() => toggleHold(i)} finalScore={getRes(i)} isFaceDown={isFaceDown(i)} /></div>)
+                 hand.map((p,i) => (
+                    <div key={i} className="w-[45%] md:w-full aspect-[3/4] md:aspect-auto md:h-full">
+                        <LiveCard player={p} isHeld={heldIndices.includes(i)} onToggle={() => toggleHold(i)} finalScore={getRes(i)} isFaceDown={isFaceDown(i)} />
+                    </div>
+                 ))
               }
            </div>
         </div>
@@ -237,7 +246,7 @@ export default function Play() {
                         </div>
                         <span className="text-xl md:text-2xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
                     </div>
-                    {/* Badge List Hidden on very small screens if needed, or scaled */}
+                    {/* Badge List Hidden on mobile */}
                     <div className="hidden md:grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
                         {badgeList.map((b, i) => (
                             <div key={i} className="flex items-center gap-0.5" title={b.label}>
