@@ -1,18 +1,26 @@
-# .cursorrules
+# CURSOR RULES FOR NBA REPLAY V2
 
-# 1. PRIME DIRECTIVE
-You are an expert React developer. Before writing any code, you MUST read `PROJECT.md` to understand the "Gold Standard" UI and Math logic.
+## 1. BEHAVIORAL STRICTNESS
+- **Read PROJECT.md First**: Before generating code, check PROJECT.md for architectural constraints.
+- **No Hallucinations**: Do not invent features (like "Market" or "Betting Feed") unless explicitly asked.
+- **Real Data Only**: Never generate code that "simulates" or "reverse engineers" NBA stats. Use `player.avg_stats` or display "-".
 
-# 2. STABILITY MODE
-- **DO NOT** refactor the `LiveCard.jsx` structure. It is pixel-perfect.
-- **DO NOT** change the "Smart Math" logic in `Play.jsx` without explicit instruction.
-- **DO NOT** remove the `to` (Turnover) stat logic from `real_nba_db.js`.
+## 2. ARCHITECTURE & LAYOUT
+- **Smart App Shell**:
+  - NEVER add `min-h-screen` to page wrappers. Use `h-full`.
+  - ALWAYS use `overflow-y-auto` for scrollable content areas inside the shell.
+  - NEVER add a global `<TopNav>` in `App.jsx`.
+- **Root Provider**: `BankrollProvider` lives in `main.jsx`. Do not move it.
 
-# 3. CONTEXT AWARENESS
-- If the user asks for a change, check if it violates `PROJECT.md`. If it does, warn the user first.
-- Always use `pip3` for Python commands (macOS environment).
-- Always use `npm run dev` for starting the app.
+## 3. UI SPECIFICS
+- **Budget Math**:
+  - Main Number: ALWAYS `$15.0`.
+  - Parenthesis: ALWAYS `(Remaining)`.
+  - NEVER show "Total Cost" as the main number.
+- **LiveCard**:
+  - Cost Badge: Must be Black/Dark (`bg-black/80`).
+  - Stats: Must handle missing data gracefully (show `-`, don't crash).
 
-# 4. TECH STACK
-- Vite, React, Tailwind CSS.
-- Local Memory: We use a local `PROJECT.md` file as the source of truth.
+## 4. CODING STYLE
+- **Tailwind**: Use arbitrary values (`h-[calc(100vh-64px)]`) only when necessary for the Smart Shell layout.
+- **Imports**: Always double-check imports (e.g., `useBankroll` requires `{}`).

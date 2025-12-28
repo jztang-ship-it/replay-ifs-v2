@@ -1,84 +1,85 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+// 1. Create the Context
 const BankrollContext = createContext();
 
-export const useBankroll = () => useContext(BankrollContext);
-
-export const BankrollProvider = ({ children }) => {
-  // Load from localStorage or default to initial values
+// 2. Create the Provider
+export function BankrollProvider({ children }) {
+  // Load from localStorage or default to $1000.00
   const [bankroll, setBankroll] = useState(() => {
-    const saved = localStorage.getItem('replay_bankroll');
-    return saved ? parseInt(saved, 10) : 1000;
+    const saved = localStorage.getItem('nba_bankroll');
+    return saved ? parseFloat(saved) : 1000.00;
   });
 
   const [xp, setXp] = useState(() => {
-    const saved = localStorage.getItem('replay_xp');
-    return saved ? parseInt(saved, 10) : 0;
+    const saved = localStorage.getItem('nba_xp');
+    return saved ? parseInt(saved) : 0;
   });
 
   const [history, setHistory] = useState(() => {
-    const saved = localStorage.getItem('replay_history');
+    const saved = localStorage.getItem('nba_history');
     return saved ? JSON.parse(saved) : [];
   });
-
+  
   const [claimedRewards, setClaimedRewards] = useState(() => {
-    const saved = localStorage.getItem('replay_claimed_rewards');
+    const saved = localStorage.getItem('nba_claimed');
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Save to localStorage whenever state changes
-  useEffect(() => { localStorage.setItem('replay_bankroll', bankroll); }, [bankroll]);
-  useEffect(() => { localStorage.setItem('replay_xp', xp); }, [xp]);
-  useEffect(() => { localStorage.setItem('replay_history', JSON.stringify(history)); }, [history]);
-  useEffect(() => { localStorage.setItem('replay_claimed_rewards', JSON.stringify(claimedRewards)); }, [claimedRewards]);
+  // Save changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('nba_bankroll', bankroll.toFixed(2));
+    localStorage.setItem('nba_xp', xp.toString());
+    localStorage.setItem('nba_history', JSON.stringify(history));
+    localStorage.setItem('nba_claimed', JSON.stringify(claimedRewards));
+  }, [bankroll, xp, history, claimedRewards]);
 
   // Actions
   const updateBankroll = (amount) => {
-    setBankroll(prev => prev + amount);
+    setBankroll(prev => Math.max(0, prev + amount));
   };
 
-  // UPDATED RECORD GAME: Now saves Score details for missions
-  const recordGame = (isWin, badgeCount, totalScore, topPlayerScore) => {
-    const newGame = {
-      id: Date.now(),
-      result: isWin ? 'WIN' : 'LOSS',
-      badges: badgeCount,
-      score: totalScore || 0, // Save Team FP
-      topPlayer: topPlayerScore || 0, // Save best player FP
-      timestamp: new Date().toISOString()
+  const claimReward = (id, amount, type) => {
+    if (claimedRewards.includes(id)) return;
+    updateBankroll(amount);
+    setClaimedRewards(prev => [...prev, id]);
+  };
+
+  const recordGame = (win, badgeCount, totalScore, topPlayerScore) => {
+    const newEntry = {
+      date: new Date().toISOString(),
+      result: win ? 'WIN' : 'LOSS',
+      score: totalScore,
+      topPlayer: topPlayerScore,
+      badges: badgeCount
     };
+    setHistory(prev => [newEntry, ...prev]);
     
-    // Add to history
-    setHistory(prev => [newGame, ...prev].slice(0, 50)); // Keep last 50 games
-    
-    // Award XP
-    let xpGained = 10; // Base XP for playing
-    if (isWin) xpGained += 50;
-    if (badgeCount > 0) xpGained += (badgeCount * 20);
-    setXp(prev => prev + xpGained);
-  };
-
-  const claimReward = (taskId, rewardAmount, type) => {
-    if (claimedRewards.includes(taskId)) return;
-
-    setClaimedRewards(prev => [...prev, taskId]);
-    updateBankroll(rewardAmount);
-    setXp(prev => prev + 10);
-  };
-
-  const value = {
-    bankroll,
-    updateBankroll,
-    xp,
-    history,
-    recordGame,
-    claimedRewards,
-    claimReward 
+    // XP Calculation: Base 10 + 10 per badge + 50 for win
+    let xpGain = 10 + (badgeCount * 10) + (win ? 50 : 0);
+    setXp(prev => prev + xpGain);
   };
 
   return (
-    <BankrollContext.Provider value={value}>
+    <BankrollContext.Provider value={{ 
+      bankroll, 
+      xp, 
+      history, 
+      updateBankroll, 
+      recordGame,
+      claimReward,
+      claimedRewards
+    }}>
       {children}
     </BankrollContext.Provider>
   );
-};
+}
+
+// 3. Create the Hook
+export function useBankroll() {
+  const context = useContext(BankrollContext);
+  if (context === undefined) {
+    throw new Error('useBankroll must be used within a BankrollProvider');
+  }
+  return context;
+}

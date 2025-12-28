@@ -104,7 +104,6 @@ export default function Play() {
     setJackpotContribution(totalBet * 0.05); 
     setTimeout(() => setJackpotContribution(0), 100);
     setPayoutResult(null); setShowEffects(false); setRunningScore(0); setResults({}); setHeldIndices([]);
-    
     const handResult = buildSmartHand([undefined, undefined, undefined, undefined, undefined]);
     if (!handResult || handResult.some(c => !c)) {
         setHand(getAllPlayers().slice(0, 5)); 
@@ -137,14 +136,12 @@ export default function Play() {
     setSequencerIndex(0);
   };
 
-  // --- SEQUENCER ---
   useEffect(() => {
     let t;
     if (gamePhase === 'DEALING') {
        if (sequencerIndex < 5) t = setTimeout(() => setSequencerIndex(p => p+1), 100);
        else t = setTimeout(() => setGamePhase('DEALT'), 200);
     }
-    
     if (gamePhase === 'REVEALING') {
        if (sequencerIndex < 5) {
           const key = `${hand[sequencerIndex].id}-${sequencerIndex}`;
@@ -179,100 +176,99 @@ export default function Play() {
   const toggleHold = (i) => { if (gamePhase === 'DEALT') setHeldIndices(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]); };
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
   const isFaceDown = (i) => (gamePhase === 'START') || (gamePhase === 'DEALING' && i > sequencerIndex) || (gamePhase === 'DRAWING' && !heldIndices.includes(i)) || (gamePhase === 'REVEALING' && i > sequencerIndex && !heldIndices.includes(i));
+  
+  // --- MATH CORRECTION ---
+  // 1. Calculate cost of ALL currently visible cards
+  const totalHandCost = hand.reduce((acc, p) => acc + (p ? p.cost : 0), 0);
+  
+  // 2. Calculate cost of HELD cards only
   const heldCost = heldIndices.reduce((acc, idx) => acc + (hand[idx] ? hand[idx].cost : 0), 0);
-  const remainingBudget = SALARY_CAP - heldCost;
+
+  // 3. Determine "Remaining" to display based on Phase
+  let displayRemaining = SALARY_CAP;
+  if (gamePhase === 'DEALT') {
+      // Scenario A: "What I have left to spend" (15 - Holds)
+      displayRemaining = SALARY_CAP - heldCost;
+  } else if (gamePhase === 'REVEALING' || gamePhase === 'END' || gamePhase === 'DRAWING') {
+      // Scenario B: "What I have left unused" (15 - Total Hand)
+      displayRemaining = SALARY_CAP - totalHandCost;
+  }
+  // (In START/DEALING, it defaults to 15.0)
+
   const betOpts = [1, 3, 5, 10, 20];
 
   return (
     <PageContainer>
-      {showEffects && payoutResult && <MoneyRain tierLabel={payoutResult.label} />}
-      {showRules && <PayoutInfo onClose={() => setShowRules(false)} />}
-      
-      {/* LAYOUT FIX: 
-        1. h-[calc(100vh-64px)] ensures we take exactly the remaining screen space.
-        2. flex-col lets us stack the Jackpot Bar and the Cards.
-      */}
-      <div className="flex flex-col h-[calc(100vh-64px)] w-full max-w-7xl mx-auto px-2 relative z-10">
+      <div className="flex flex-col h-full w-full max-w-7xl mx-auto relative z-10">
         
-        {/* TOP: JACKPOT BAR (Fixed size, No Margin) */}
-        {/* Changed mt-4 to mt-0 to kill whitespace */}
-        <div className="shrink-0 w-full flex justify-center mt-0 pt-2 pb-2 relative z-30">
+        <div className="shrink-0 w-full flex justify-center py-2 relative z-30">
           <JackpotBar addAmount={jackpotContribution} />
         </div>
         
-        {/* MIDDLE: CARD AREA (Scrollable) 
-          1. flex-1 allows it to fill all remaining space.
-          2. overflow-y-auto enables scrolling ONLY within this box.
-          3. pb-48 ensures the bottom of the cards is never hidden behind the fixed footer.
-        */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar pb-48 relative z-20">
-           <div className="w-full grid grid-cols-5 gap-2 px-1">
+        <div className="flex-1 flex flex-col items-center justify-center relative z-20 min-h-0 w-full overflow-y-auto custom-scrollbar">
+           <div className="w-full h-full max-h-[65vh] grid grid-cols-5 gap-2 px-3 pb-2">
               {hand.length === 0 ? 
-                 Array.from({length:5}).map((_,i) => <div key={i} className="aspect-[3/5]"><LiveCard isFaceDown={true}/></div>) 
+                 Array.from({length:5}).map((_,i) => <div key={i} className="h-full w-full"><LiveCard isFaceDown={true}/></div>) 
               : 
-                 hand.map((p,i) => <div key={i} className="aspect-[3/5]"><LiveCard player={p} isHeld={heldIndices.includes(i)} onToggle={() => toggleHold(i)} finalScore={getRes(i)} isFaceDown={isFaceDown(i)} /></div>)
+                 hand.map((p,i) => <div key={i} className="h-full w-full"><LiveCard player={p} isHeld={heldIndices.includes(i)} onToggle={() => toggleHold(i)} finalScore={getRes(i)} isFaceDown={isFaceDown(i)} /></div>)
               }
            </div>
         </div>
 
-      </div>
-
-      {/* BOTTOM: FIXED FOOTER */}
-      <div className="fixed bottom-0 left-0 w-full bg-slate-950 border-t border-slate-900 p-4 pb-8 z-50 shadow-2xl">
-        <div className="max-w-xl mx-auto flex flex-col gap-3">
-           
-           <div className="flex items-center justify-between h-16 bg-slate-900 rounded-xl border border-slate-800 px-3 relative overflow-hidden">
-             
-             {/* LEFT: BUDGET */}
-             <div className="flex flex-col leading-tight min-w-[80px] z-10">
-               <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">BUDGET</span>
-               <div className="flex items-baseline gap-1">
-                 <span className="font-mono font-black text-lg text-white">${SALARY_CAP.toFixed(1)}</span>
-                 <span className={`font-mono font-bold text-[10px] ${remainingBudget < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                   ({remainingBudget >= 0 ? '+' : ''}{remainingBudget.toFixed(1)})
-                 </span>
-               </div>
-             </div>
-
-             {/* CENTER: MESSAGES */}
-             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                {gamePhase === 'DEALT' && <div className="bg-black/60 px-4 py-1 rounded-full border border-orange-500/30 animate-pulse"><span className="text-orange-400 text-[10px] font-black uppercase tracking-[0.2em]">Hold and Draw</span></div>}
-                {gamePhase === 'END' && payoutResult && <WinText label={payoutResult.label} color={payoutResult.color} />}
-             </div>
-
-             {/* RIGHT: SCORE & LEGEND */}
-             <div className="flex items-center gap-3 z-10">
-                <div className="flex flex-col items-end leading-none">
-                    <div className="flex items-center gap-1 mb-1">
-                        <span className="text-[9px] text-blue-400 font-black uppercase tracking-widest">TEAM FP</span>
-                        <button onClick={() => setShowRules(true)} className="w-3 h-3 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[8px] text-slate-400 hover:text-white hover:border-slate-400">?</button>
+        <div className="shrink-0 w-full bg-slate-950 border-t border-slate-900 p-4 pb-8 z-50 shadow-[0_-5px_25px_rgba(0,0,0,0.5)]">
+            <div className="max-w-xl mx-auto flex flex-col gap-3">
+            
+            <div className="flex items-center justify-between h-16 bg-slate-900 rounded-xl border border-slate-800 px-3 relative overflow-hidden">
+                <div className="flex flex-col leading-tight min-w-[80px] z-10">
+                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">BUDGET</span>
+                    <div className="flex items-baseline gap-1">
+                        {/* 1. Constant Anchor: Always $15.0 */}
+                        <span className="font-mono font-black text-lg text-white">${SALARY_CAP.toFixed(1)}</span>
+                        
+                        {/* 2. Parenthesis: Remaining Budget (Changes based on phase) */}
+                        <span className={`font-mono font-bold text-[10px] ${displayRemaining < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                           ({displayRemaining >= 0 ? '+' : ''}{displayRemaining.toFixed(1)})
+                        </span>
                     </div>
-                    <span className="text-2xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
                 </div>
-                <div className="grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
-                    {badgeList.map((b, i) => (
-                        <div key={i} className="flex items-center gap-0.5" title={b.label}>
-                            <span className="text-[10px]">{b.emoji}</span>
-                            <span className="text-[6px] text-slate-400 font-bold uppercase tracking-tight">{b.label}</span>
-                        </div>
-                    ))}
-                </div>
-             </div>
-           </div>
 
-           {/* BETS */}
-           <div className="flex justify-between items-center px-1">
-              <div className="flex gap-1.5">{betOpts.map(m => (<button key={m} onClick={() => setBetMultiplier(m)} disabled={gamePhase !== 'START' && gamePhase !== 'END' && gamePhase !== 'DEALT'} className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${betMultiplier === m ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{m===20?'MAX':`${m}x`}</button>))}</div>
-              <div className="text-right"><span className="text-[9px] text-slate-500 uppercase font-bold block">Total Bet</span><span className="text-white font-mono font-bold text-sm">${10 * betMultiplier}</span></div>
-           </div>
-           
-           {/* BUTTONS */}
-           <div className="flex gap-2">
-               <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleReplay:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`py-4 text-white font-black rounded-xl shadow-lg transition-all text-sm tracking-[0.2em] uppercase flex-1 ${gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'?'bg-slate-800 text-slate-500':(gamePhase==='END'?'bg-green-600 hover:brightness-110':'bg-blue-600 hover:brightness-110')} active:scale-95`}>
-                 {gamePhase==='DEALT'?'DRAW':(gamePhase==='END'?'REPLAY':(gamePhase==='DEALING'?'DEALING...':'DEAL'))}
-               </button>
-           </div>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                    {gamePhase === 'DEALT' && <div className="bg-black/60 px-4 py-1 rounded-full border border-orange-500/30 animate-pulse"><span className="text-orange-400 text-[10px] font-black uppercase tracking-[0.2em]">Hold and Draw</span></div>}
+                    {gamePhase === 'END' && payoutResult && <WinText label={payoutResult.label} color={payoutResult.color} />}
+                </div>
+
+                <div className="flex items-center gap-3 z-10">
+                    <div className="flex flex-col items-end leading-none">
+                        <div className="flex items-center gap-1 mb-1">
+                            <span className="text-[9px] text-blue-400 font-black uppercase tracking-widest">TEAM FP</span>
+                            <button onClick={() => setShowRules(true)} className="w-3 h-3 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[8px] text-slate-400 hover:text-white hover:border-slate-400">?</button>
+                        </div>
+                        <span className="text-2xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
+                        {badgeList.map((b, i) => (
+                            <div key={i} className="flex items-center gap-0.5" title={b.label}>
+                                <span className="text-[10px]">{b.emoji}</span>
+                                <span className="text-[6px] text-slate-400 font-bold uppercase tracking-tight">{b.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex justify-between items-center px-1">
+                <div className="flex gap-1.5">{betOpts.map(m => (<button key={m} onClick={() => setBetMultiplier(m)} disabled={gamePhase !== 'START' && gamePhase !== 'END' && gamePhase !== 'DEALT'} className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${betMultiplier === m ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{m===20?'MAX':`${m}x`}</button>))}</div>
+                <div className="text-right"><span className="text-[9px] text-slate-500 uppercase font-bold block">Total Bet</span><span className="text-white font-mono font-bold text-sm">${10 * betMultiplier}</span></div>
+            </div>
+            
+            <div className="flex gap-2">
+                <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleReplay:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`py-4 text-white font-black rounded-xl shadow-lg transition-all text-sm tracking-[0.2em] uppercase flex-1 ${gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'?'bg-slate-800 text-slate-500':(gamePhase==='END'?'bg-green-600 hover:brightness-110':'bg-blue-600 hover:brightness-110')} active:scale-95`}>
+                    {gamePhase==='DEALT'?'DRAW':(gamePhase==='END'?'REPLAY':(gamePhase==='DEALING'?'DEALING...':'DEAL'))}
+                </button>
+            </div>
+            </div>
         </div>
+
       </div>
     </PageContainer>
   );

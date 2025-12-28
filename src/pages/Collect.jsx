@@ -134,7 +134,7 @@ export default function Collect() {
   const safeHistory = useMemo(() => history || [], [history]);
   const safeClaimed = useMemo(() => claimedRewards || [], [claimedRewards]);
   
-  const [view, setView] = useState('TASKS'); // Renamed from REWARDS
+  const [view, setView] = useState('TASKS');
   const [lastWin, setLastWin] = useState(null); 
 
   // --- XP MATH ---
@@ -159,62 +159,38 @@ export default function Collect() {
     }
   }
 
-  // --- MISSION CHAINS (Grouped by Type) ---
+  // --- MISSION CHAINS ---
   const allMissions = [
-    // CHAIN: PLAYING HANDS
     { id: 'd_play_3', group: 'play', step: 1, title: "Warm Up", desc: "Play 3 hands", icon: "🏀", reward: 50, current: gamesPlayed, target: 3 },
     { id: 'd_play_6', group: 'play', step: 2, title: "Rotation", desc: "Play 6 hands", icon: "🏀", reward: 100, current: gamesPlayed, target: 6 },
     { id: 'd_play_10', group: 'play', step: 3, title: "Starter", desc: "Play 10 hands", icon: "🏀", reward: 200, current: gamesPlayed, target: 10 },
     { id: 'd_play_20', group: 'play', step: 4, title: "Grinder", desc: "Play 20 hands", icon: "😤", reward: 500, current: gamesPlayed, target: 20 },
-
-    // CHAIN: WINNING HANDS
     { id: 'd_win_1', group: 'win', step: 1, title: "First W", desc: "Win 1 hand", icon: "🏆", reward: 50, current: wins, target: 1 },
     { id: 'd_win_3', group: 'win', step: 2, title: "Shooter", desc: "Win 3 hands", icon: "🏆", reward: 150, current: wins, target: 3 },
     { id: 'd_win_5', group: 'win', step: 3, title: "Closer", desc: "Win 5 hands", icon: "🏆", reward: 300, current: wins, target: 5 },
     { id: 'd_win_10', group: 'win', step: 4, title: "Winner", desc: "Win 10 hands", icon: "👑", reward: 750, current: wins, target: 10 },
-
-    // CHAIN: WIN STREAK
     { id: 'b_streak_3', group: 'streak', step: 1, title: "On Fire", desc: "Win 3 in a row", icon: "🔥", reward: 250, current: maxWinStreak, target: 3 },
     { id: 'b_streak_5', group: 'streak', step: 2, title: "Unstoppable", desc: "Win 5 in a row", icon: "🔥🔥", reward: 1000, current: maxWinStreak, target: 5 },
-
-    // SINGLE: HIGH SCORE
     { id: 'b_high_220', group: 'score', step: 1, title: "Dream Team", desc: "Score 220+ FP", icon: "📈", reward: 500, current: safeHistory.some(h => h.score >= 220) ? 1 : 0, target: 1 },
-    
-    // SINGLE: TOP PLAYER
     { id: 'b_player_100', group: 'player', step: 1, title: "God Mode", desc: "Player w/ 100+ FP", icon: "👽", reward: 1000, current: safeHistory.some(h => h.topPlayer >= 100) ? 1 : 0, target: 1 },
   ];
 
-  // --- FILTER LOGIC: SHOW ONLY ACTIVE TASK PER GROUP ---
   const activeTasks = useMemo(() => {
     const groups = {};
-    
-    // 1. Sort missions by step order
     allMissions.sort((a, b) => a.step - b.step);
-
-    // 2. Find the first unclaimed task in each group
     allMissions.forEach(task => {
       const isClaimed = safeClaimed.includes(task.id);
-      
-      // If we haven't found an active task for this group yet
-      if (!groups[task.group]) {
-        if (!isClaimed) {
-          // This is the next goal
-          groups[task.group] = task;
-        } else {
-          // This task is done & claimed. 
-          // If it's the last one in the chain, we might want to show it as "Completed"
-          // For now, we just skip it to find the next one.
-        }
+      if (!groups[task.group] && !isClaimed) {
+        groups[task.group] = task;
       }
     });
-
-    // 3. Convert back to array
     return Object.values(groups);
   }, [allMissions, safeClaimed]);
 
   return (
     <PageContainer>
-      <div className="flex flex-col min-h-screen px-4 pt-4 pb-32 max-w-xl mx-auto w-full relative z-0">
+      {/* LAYOUT FIX: Used h-full + overflow-y-auto to allow scrolling inside the fixed PageContainer */}
+      <div className="flex flex-col h-full w-full max-w-xl mx-auto relative z-0 overflow-y-auto custom-scrollbar px-4 pt-4 pb-32">
         
         {/* TOP TOGGLE */}
         <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800 mb-6 backdrop-blur-md sticky top-0 z-30 shadow-xl">
@@ -239,7 +215,7 @@ export default function Collect() {
               />
             </div>
 
-            {/* MISSIONS (Filtered List) */}
+            {/* MISSIONS */}
             <div>
               <div className="flex items-center gap-2 mb-3 px-1 border-t border-slate-800 pt-6">
                 <span className="text-lg">⚡</span>

@@ -1,41 +1,34 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import PageContainer from '../components/layout/PageContainer';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden pt-20">
-      
-      {/* Background decoration */}
-      <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600 rounded-full blur-[128px]"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600 rounded-full blur-[128px]"></div>
-      </div>
+    <PageContainer>
+      {/* Centering Wrapper: Fills the flex-1 space defined in PageContainer */}
+      <div className="h-full w-full flex flex-col items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] bg-opacity-10">
+        
+        {/* Main Card */}
+        <div className="max-w-md w-full bg-slate-900 border border-slate-700 rounded-2xl p-8 flex flex-col items-center gap-6 shadow-2xl relative overflow-hidden group">
+            
+            {/* Glow Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
-      <div className="z-10 flex flex-col items-center gap-6">
-        {/* Logo / Title */}
-        <div className="flex flex-col items-center text-center">
-             <img src="/assets/Beta-logo.png" alt="Logo" className="w-32 h-32 object-contain mb-4 opacity-90" />
-             <h1 className="text-6xl font-black text-white tracking-tighter mb-2">
-                REPLAY <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600">IFS</span>
-             </h1>
-             {/* UPDATED TAGLINE */}
-             <p className="text-slate-400 font-mono text-sm tracking-widest uppercase">
-                The <span className="text-green-400 font-bold">INSTANT</span> Fantasy Experience
-             </p>
+            <img src="/assets/Beta-logo.png" alt="NBA Replay" className="h-16 w-auto relative z-10" />
+            
+            <div className="text-center relative z-10">
+                <h1 className="text-2xl font-black text-white tracking-widest uppercase mb-2">Welcome Back</h1>
+                <p className="text-slate-400 text-sm font-medium">Daily Fantasy. Reimagined.</p>
+            </div>
+
+            <Link to="/play" className="w-full relative z-10">
+                <button className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl uppercase tracking-[0.2em] shadow-lg hover:shadow-blue-500/50 hover:-translate-y-1 transition-all duration-200">
+                    Enter Game
+                </button>
+            </Link>
         </div>
 
-        {/* Play Button */}
-        <Link to="/play">
-          <button className="px-12 py-5 bg-white text-slate-950 font-black rounded-full text-xl hover:scale-105 hover:bg-slate-200 transition-all shadow-[0_0_40px_rgba(255,255,255,0.3)] mt-4">
-            ENTER GAME
-          </button>
-        </Link>
       </div>
-
-      {/* Footer Info */}
-      <div className="absolute bottom-8 text-slate-600 text-xs font-mono">
-        v2.0.3 // POWERED BY GEMINI
-      </div>
-    </div>
+    </PageContainer>
   );
 }

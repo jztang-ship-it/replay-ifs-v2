@@ -33,10 +33,11 @@ export default function Pulse() {
 
   return (
     <PageContainer>
-      <div className="flex flex-col min-h-screen px-4 pt-6 pb-24 max-w-xl mx-auto w-full">
+      {/* LAYOUT FIX: Used h-full + overflow-y-auto instead of min-h-screen */}
+      <div className="flex flex-col h-full w-full max-w-xl mx-auto px-4 pt-6 pb-24 overflow-y-auto custom-scrollbar">
         
         {/* HEADER */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 shrink-0">
           <h1 className="text-2xl font-black text-white italic tracking-tighter uppercase">
             The Pulse <span className="text-blue-500 not-italic text-lg ml-1">⚡</span>
           </h1>

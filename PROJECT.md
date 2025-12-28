@@ -1,38 +1,40 @@
 # PROJECT: NBA REPLAY v2
 
 ## 1. CORE ARCHITECTURE
-- **Frontend**: React + Vite
-- **Styling**: Tailwind CSS
-- **State**: React Context (`BankrollContext`)
-- **Gatekeeper**: `.cursorrules` forces adherence to this file.
+- **Root**: `main.jsx` wraps everything in `<BankrollProvider>`.
+- **Routing**: `App.jsx` handles `BrowserRouter` and Routes.
+- **Layout Strategy ("Smart App Shell")**:
+  - **Global**: `PageContainer.jsx` sets `h-screen w-full overflow-hidden`.
+  - **Scroll Policy**: The window **NEVER** scrolls.
+  - **Content**: Inner pages use `flex-1` and `overflow-y-auto` to manage their own scrolling.
+  - **Headers**: Managed by `PageContainer` (NOT `App.jsx`).
 
-## 2. GOLD STANDARD UI (DO NOT CHANGE)
+## 2. GOLD STANDARD UI RULES
 
-### A. The LiveCard Component
-- **Visual Structure**:
-  - **Flip Animation**: CSS 3D Transform (`rotateY`). Back has "REPLAY" watermark.
-  - **Image**: High-Res Headshot (`1040x760`), scaled 125%, object-top.
-  - **Name Overlay**: Bottom of image, gradient background, uppercase, `line-clamp-1`.
-  - **Cost Badge**: Top Right. **Black/Dark** background.
-  - **Hold Badge**: Bottom Right (Yellow Pill).
-- **Data Footer**:
-  - **Date Strip**: "YYYY, MMM DD - OPP".
-  - **Stats Grid**: TWO rows of 3 stats (PTS/REB/AST, STL/BLK/TO).
-  - **FP Score**: Large font, colored Green/Red based on projection beat.
-- **Data Integrity (CRITICAL)**:
-  - **NEVER** calculate or guess stats.
-  - If stats are missing, display "N/A" or "-". **DO NOT** reverse-engineer them.
-  - All displayed stats must come directly from the database source.
+### A. The Play Page
+- **Layout**: Flex Column (Header -> Jackpot -> Cards -> Footer). No gap above Jackpot.
+- **Budget Display**:
+  - **Format**: **$15.0** (Constant Anchor) + **(Remaining)**.
+  - **Logic**: Parenthesis shows `$15.0 - Current_Liability`.
+  - **Liability**: During Deal = Cost of Holds. During Reveal = Cost of Full Hand.
+- **Card Grid**: Scrolls independently behind the footer.
 
-### B. The Play Page UI
-- **Header**: Must use `Beta-logo.png`.
-- **Budget**: Main number fixed at $15.0. Green indicator shows remaining based on HELD cards.
-- **Layout**: Center tabs ("PLAY", "PULSE", "COLLECT"). Fixed footer with no scroll/cutoff issues.
+### B. The LiveCard Component
+- **Visuals**: Flip animation, High-Res Headshot (scaled 125%), Black Cost Badge.
+- **Stats**: TWO rows. (PTS/REB/AST) and (STL/BLK/TO).
+- **Data**: **REAL DATA ONLY**. If `avg_stats` is missing in DB, show "-". Do not calculate/guess.
 
-## 3. MATH & LOGIC INVARIANTS
-- **Salary Cap**: $15.00 Hard Cap.
-- **Winning Floor**: The "Smart Math" builder must retry until it finds a hand >= **$14.50**.
-- **Database**: Must include `avg_stats` object with real PTS, REB, AST, STL, BLK, TO values.
+### C. Feature Tabs
+- **Pulse**: News Aggregator, Social Feed, Chat. (NOT a betting ticker).
+- **Collect**: VIP Tiers, Daily Tasks, Slot Machine. (NOT a card gallery).
 
-## 4. CURRENT KNOWN ISSUES
-- None.
+## 3. DATA INTEGRITY
+- **Source**: `src/data/real_nba_db.js`.
+- **Immutable Rule**: We never simulate stats. We display what is in the DB.
+
+## 4. CURRENT STATUS
+- **Architecture**: Stable (Smart Shell + Global Context).
+- **Play**: Complete (Layout & Math fixed).
+- **Pulse**: Functional (News/Social).
+- **Collect**: Functional (VIP/Tasks).
+- **Home**: Static Landing.
