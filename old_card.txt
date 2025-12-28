@@ -56,12 +56,12 @@ const getAbbr = (teamName) => {
     'Utah Jazz': 'UTA', 'Utah': 'UTA', 'Jazz': 'UTA',
     'Washington Wizards': 'WAS', 'Washington': 'WAS', 'Wizards': 'WAS'
   };
+  // Return mapped abbreviation or the original string if not found (already abbr)
   return map[teamName] || teamName.toUpperCase().substring(0, 3);
 };
 
 export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceDown }) {
-  const [imgError, setImgError] = useState(false);
-
+  
   // 1. TIER STYLES
   const getTierStyles = () => {
     if (!player) return { border: 'border-slate-800', text: 'text-slate-400' };
@@ -77,35 +77,33 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
   // 2. DATA PREP
   const isProjected = !finalScore;
   const projectedScore = (parseFloat(player?.cost) || 0) * 10.0;
-  // Fallback to 0 if stats are missing to prevent crash
-  const displayStats = isProjected ? (player?.avg || {}) : (finalScore.stats || { pts:0, reb:0, ast:0, stl:0, blk:0, to:0 });
+  const displayStats = isProjected ? (player?.avg || {}) : finalScore.rawStats;
   const badges = finalScore?.badges || []; 
   const bonus = finalScore?.bonus || 0;
   
-  // HIGH RES IMAGE URL
-  const headshotUrl = `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/1040x760/${player?.id}.png`;
-
   // 3. DATE & OPPONENT FORMATTING
   const formatDate = (ds) => {
       if (!ds) return '';
       const str = String(ds); 
       const parts = str.split('-');
+      // Fallback for weird data
       if (parts.length < 3) return str; 
       
       const [y, m, d] = parts;
       const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const monthIndex = parseInt(m) - 1;
       
+      // Safety check
       if (monthIndex < 0 || monthIndex > 11) return str; 
       
       return `${y}, ${months[monthIndex]} ${d}`;
   };
 
-  // Mock Date if missing (since DB might not provide it yet)
-  const dateStr = formatDate(finalScore?.date || '2024-02-03');
-  const rawOpp = finalScore?.opp || 'Opponent';
+  const dateStr = formatDate(finalScore?.date);
+  const rawOpp = finalScore?.opp || '';
   const oppAbbr = getAbbr(rawOpp);
   
+  // FINAL STRING: "2023, Nov 04 - LAC"
   const oppDisplay = oppAbbr ? ` - ${oppAbbr}` : '';
   const fullDateDisplay = isProjected ? 'SEASON AVG' : `${dateStr}${oppDisplay}`;
 
@@ -137,23 +135,17 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
               {/* IMAGE REGION */}
               <div className="relative flex-1 w-full overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-slate-800 via-slate-900 to-black z-0"></div>
-                {!imgError ? (
-                   <img 
-                     src={headshotUrl} 
-                     alt={player.name}
-                     className="absolute inset-0 w-full h-full object-cover object-top origin-top scale-125 z-10 drop-shadow-2xl"
-                     onError={() => setImgError(true)}
-                   />
-                ) : (
-                   <div className="absolute inset-0 flex items-center justify-center text-4xl opacity-50 z-10">👤</div>
-                )}
-                
+                <img 
+                  src={player.image} 
+                  alt={player.name}
+                  className="absolute inset-0 w-full h-full object-cover object-top origin-top scale-125 z-10 drop-shadow-2xl"
+                />
                 <div className="absolute bottom-0 w-full text-center z-20 bg-gradient-to-t from-black via-black/90 to-transparent pt-8 pb-1">
-                    <h3 className="text-[9px] font-black text-white uppercase tracking-wider line-clamp-1 px-1 drop-shadow-md">{player.name}</h3>
+                   <h3 className="text-[9px] font-black text-white uppercase tracking-wider line-clamp-1 px-1 drop-shadow-md">{player.name}</h3>
                 </div>
                 <div className="absolute top-1 right-1 z-30">
-                    <div className={`text-[9px] font-black ${tier.text} bg-blue-600 px-1.5 py-0.5 rounded border border-white/10 shadow-lg`}>
-                        ${player.cost.toFixed(2)}
+                    <div className={`text-[9px] font-black ${tier.text} bg-black/80 px-1.5 py-0.5 rounded border border-white/10 shadow-lg`}>
+                        ${player.cost}
                     </div>
                 </div>
                 {isHeld && (
@@ -175,14 +167,13 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                     )}
                  </div>
                  
-                 {/* DATE LINE */}
+                 {/* DATE LINE: NO TRUNCATE */}
                  <div className="text-center bg-slate-900/30 w-full overflow-hidden whitespace-nowrap px-1">
                      <span className={`text-[7px] font-bold uppercase tracking-widest ${isProjected ? 'text-slate-500' : 'text-orange-400'}`}>
                         {fullDateDisplay}
                      </span>
                  </div>
 
-                 {/* 6 STAT GRID */}
                  <div className="grid grid-cols-3 gap-0.5 bg-slate-900/30 rounded-sm py-0.5">
                     <StatItem label="PTS" value={displayStats.pts} />
                     <StatItem label="REB" value={displayStats.reb} />
@@ -210,10 +201,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
             </>
           ) : null}
         </div>
-        
-        {/* BACK (Face Down) */}
         <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-xl border-2 border-slate-700 flex items-center justify-center overflow-hidden" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
           <div className="absolute text-slate-700 font-black text-lg tracking-[0.2em] opacity-30 rotate-45">REPLAY</div>
         </div>
       </div>

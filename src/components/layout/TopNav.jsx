@@ -1,18 +1,50 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useBankroll } from '../../context/BankrollContext';
 
 export default function TopNav() {
   const location = useLocation();
-  const { bankroll, xp } = useBankroll();
+  const { bankroll, xp, history, claimedRewards } = useBankroll();
 
   const isActive = (path) => location.pathname === path;
+
+  // --- RED DOT LOGIC ---
+  const notificationCount = useMemo(() => {
+    const safeHistory = history || [];
+    const safeClaimed = claimedRewards || [];
+    let count = 0;
+
+    const gamesPlayed = safeHistory.length;
+    const wins = safeHistory.filter(h => h.result === 'WIN').length;
+
+    // We replicate the simple checks here.
+    // Ideally this logic lives in a shared helper, but for now we keep it localized to avoid file sprawl.
+    const checkTask = (id, current, target) => {
+      if (current >= target && !safeClaimed.includes(id)) count++;
+    };
+
+    // Chain: Play
+    checkTask('d_play_3', gamesPlayed, 3);
+    checkTask('d_play_6', gamesPlayed, 6);
+    checkTask('d_play_10', gamesPlayed, 10);
+    
+    // Chain: Win
+    checkTask('d_win_1', wins, 1);
+    checkTask('d_win_3', wins, 3);
+    checkTask('d_win_5', wins, 5);
+
+    // Daily Spin (If not guest, and not claimed)
+    // Note: Checking VIP level would require importing VIP_TIERS, simplified here to just xp > 0
+    if (xp >= 100 && !safeClaimed.includes('daily_slot')) count++;
+
+    return count;
+  }, [history, claimedRewards, xp]);
 
   return (
     <div className="fixed top-0 left-0 w-full h-16 z-[9999] bg-slate-950/90 backdrop-blur-md border-b border-white/5 shadow-2xl">
       <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between relative">
         
-        {/* LEFT: LOGO (Home Link) - Explicit Z-Index */}
+        {/* LEFT: LOGO */}
         <Link to="/" className="flex items-center gap-2 group z-50 hover:opacity-80 transition-opacity cursor-pointer">
           <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center text-lg shadow-lg group-hover:scale-105 transition-transform">
             🐶
@@ -23,9 +55,7 @@ export default function TopNav() {
         </Link>
 
         {/* CENTER: NAVIGATION PILL */}
-        {/* CRITICAL FIX: pointer-events-none ensures this wrapper NEVER blocks clicks */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full flex justify-center pointer-events-none">
-          {/* pointer-events-auto restores clicking ONLY for the buttons */}
           <nav className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 backdrop-blur-sm shadow-inner pointer-events-auto">
             
             <Link to="/play" className={`px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isActive('/play') ? 'bg-slate-800 text-white shadow-lg border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}>
@@ -38,9 +68,13 @@ export default function TopNav() {
               <span className="text-[10px] font-black uppercase tracking-wider hidden sm:block">Pulse</span>
             </Link>
 
-            <Link to="/collect" className={`px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isActive('/collect') ? 'bg-slate-800 text-white shadow-lg border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}>
+            <Link to="/collect" className={`relative px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isActive('/collect') ? 'bg-slate-800 text-white shadow-lg border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}>
               <span className="text-sm">💎</span>
               <span className="text-[10px] font-black uppercase tracking-wider hidden sm:block">Collect</span>
+              {/* NOTIFICATION DOT */}
+              {notificationCount > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-black animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+              )}
             </Link>
 
             <Link to="/sync" className={`px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isActive('/sync') ? 'bg-slate-800 text-white shadow-lg border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}>

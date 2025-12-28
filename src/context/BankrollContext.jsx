@@ -37,11 +37,14 @@ export const BankrollProvider = ({ children }) => {
     setBankroll(prev => prev + amount);
   };
 
-  const recordGame = (isWin, badgeCount) => {
+  // UPDATED RECORD GAME: Now saves Score details for missions
+  const recordGame = (isWin, badgeCount, totalScore, topPlayerScore) => {
     const newGame = {
       id: Date.now(),
       result: isWin ? 'WIN' : 'LOSS',
       badges: badgeCount,
+      score: totalScore || 0, // Save Team FP
+      topPlayer: topPlayerScore || 0, // Save best player FP
       timestamp: new Date().toISOString()
     };
     
@@ -55,14 +58,11 @@ export const BankrollProvider = ({ children }) => {
     setXp(prev => prev + xpGained);
   };
 
-  // --- MISSING FUNCTION ADDED HERE ---
   const claimReward = (taskId, rewardAmount, type) => {
-    if (claimedRewards.includes(taskId)) return; // Prevent double claim
+    if (claimedRewards.includes(taskId)) return;
 
     setClaimedRewards(prev => [...prev, taskId]);
     updateBankroll(rewardAmount);
-    
-    // Optional: Add XP for claiming tasks
     setXp(prev => prev + 10);
   };
 
@@ -73,7 +73,7 @@ export const BankrollProvider = ({ children }) => {
     history,
     recordGame,
     claimedRewards,
-    claimReward // Exporting the function
+    claimReward 
   };
 
   return (

@@ -1,0 +1,18 @@
+# .cursorrules
+
+# 1. PRIME DIRECTIVE
+You are an expert React developer. Before writing any code, you MUST read `PROJECT.md` to understand the "Gold Standard" UI and Math logic.
+
+# 2. STABILITY MODE
+- **DO NOT** refactor the `LiveCard.jsx` structure. It is pixel-perfect.
+- **DO NOT** change the "Smart Math" logic in `Play.jsx` without explicit instruction.
+- **DO NOT** remove the `to` (Turnover) stat logic from `real_nba_db.js`.
+
+# 3. CONTEXT AWARENESS
+- If the user asks for a change, check if it violates `PROJECT.md`. If it does, warn the user first.
+- Always use `pip3` for Python commands (macOS environment).
+- Always use `npm run dev` for starting the app.
+
+# 4. TECH STACK
+- Vite, React, Tailwind CSS.
+- Local Memory: We use a local `PROJECT.md` file as the source of truth.
