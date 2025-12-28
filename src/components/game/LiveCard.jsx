@@ -9,20 +9,19 @@ const CardBack = () => (
     </div>
 );
 
-// --- UPDATED TIER THRESHOLDS (Adjusted for your $1-6 salary scale) ---
+// TIER LOGIC (Using strict strings to help Tailwind)
 const getTierStyle = (cost) => {
-    // Embiid is 5.9, Curry is 4.3. Let's map them correctly.
     const val = parseFloat(cost || 0);
-    if (val >= 5.0) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400', grad: 'from-amber-900 to-slate-900' }; // Legendary ($5+)
-    if (val >= 4.0) return { border: 'border-purple-400', text: 'text-purple-400', bg: 'bg-purple-400', grad: 'from-purple-900 to-slate-900' }; // Epic ($4-5)
-    if (val >= 2.5) return { border: 'border-blue-400', text: 'text-blue-400', bg: 'bg-blue-400', grad: 'from-blue-900 to-slate-900' };   // Rare ($2.5-4)
-    return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500', grad: 'from-slate-800 to-slate-900' };         // Common (<$2.5)
+    if (val >= 5.0) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400', grad: 'from-amber-900' };
+    if (val >= 4.0) return { border: 'border-purple-400', text: 'text-purple-400', bg: 'bg-purple-400', grad: 'from-purple-900' };
+    if (val >= 2.5) return { border: 'border-blue-400', text: 'text-blue-400', bg: 'bg-blue-400', grad: 'from-blue-900' };
+    return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500', grad: 'from-slate-800' };
 };
 
 export default function LiveCard(props) {
   const [imgError, setImgError] = useState(false);
 
-  // UNWRAP LOGIC
+  // UNWRAP
   let player = props.player;
   if (player && player.player) player = player.player; 
   if (player && player.meta) player = player.meta;
@@ -38,27 +37,25 @@ export default function LiveCard(props) {
       );
   }
 
-  // DATA SETUP
+  // DATA
   const isResultPhase = !!finalScore;
   const meta = (finalScore && finalScore.meta) ? finalScore.meta : player;
   
   const safeCost = meta.cost !== undefined ? meta.cost : (meta.price || 0);
   const tier = getTierStyle(safeCost);
-
-  // SCORE LOGIC (Kept the 'avg' fix!)
   const rawProj = meta.avg || meta.avg_fp || meta.fp || meta.projected || 0;
-  
   const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
-  const getInitials = (name) => {
-      if (!name) return "??";
-      return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  };
+  const getInitials = (name) => name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : "??";
 
-  // --- IMAGE HTTPS FIX ---
-  // Ensure we always request the secure version of the image
-  const secureImage = meta.image_url ? meta.image_url.replace("http://", "https://") : "";
+  // --- IMAGE FIX: MANUAL CONSTRUCTION ---
+  // 1. Try provided URL (HTTPS forced)
+  // 2. If missing, build it from ID: https://cdn.nba.com/headshots/nba/latest/1040x760/{ID}.png
+  let finalImage = meta.image_url ? meta.image_url.replace("http://", "https://") : "";
+  if (!finalImage && meta.id) {
+      finalImage = `https://cdn.nba.com/headshots/nba/latest/1040x760/${meta.id}.png`;
+  }
 
   return (
     <div 
@@ -67,23 +64,26 @@ export default function LiveCard(props) {
     >
       <div className={`relative w-full h-full transition-all duration-500 transform-style-3d ${isFaceDown ? 'rotate-y-180' : 'rotate-y-0'}`}>
         
+        {/* TAILWIND SAFELIST (Hidden Vault) - Forces these colors to exist */}
+        <div className="hidden border-amber-400 text-amber-400 bg-amber-400 from-amber-900 border-purple-400 text-purple-400 bg-purple-400 from-purple-900 border-blue-400 text-blue-400 bg-blue-400 from-blue-900 border-slate-600 text-slate-400 bg-slate-500 from-slate-800"></div>
+
         {/* FRONT */}
         <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-xl border-2 ${isHeld ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : tier.border} flex flex-col overflow-hidden backface-hidden`}>
             
             {/* IMAGE AREA */}
-            <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden min-h-0`}>
+            <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} to-slate-950 overflow-hidden min-h-0`}>
                 
-                {/* LAYER 1: Initials */}
+                {/* Initials (Background) */}
                 <div className="absolute inset-0 flex items-center justify-center z-0">
                     <span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">
                         {getInitials(meta.name)}
                     </span>
                 </div>
 
-                {/* LAYER 2: Real Image (HTTPS Enforced) */}
-                {!imgError && secureImage && (
+                {/* Real Image */}
+                {!imgError && finalImage && (
                     <img 
-                        src={secureImage} 
+                        src={finalImage} 
                         alt={meta.name} 
                         referrerPolicy="no-referrer"
                         className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
