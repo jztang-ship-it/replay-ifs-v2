@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Card Back Component
 const CardBack = () => (
     <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shadow-2xl backface-hidden rotate-y-180">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30 mix-blend-overlay"></div>
@@ -34,10 +33,9 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
   const safeCost = meta.cost !== undefined ? meta.cost : 0;
   const tier = getTierStyle(safeCost);
 
-  // SCORE LOGIC (Critical Fix)
-  // If result phase, use finalScore.score. 
-  // If deal phase, use player.avg_fp. Default to 0 if missing.
-  const displayScore = isResultPhase ? (finalScore.score || 0) : (player.avg_fp || 0);
+  // SCORE LOGIC: Fallback to multiple property names if 'avg_fp' is missing
+  const rawProj = player.avg_fp || player.fp || player.projected || 0;
+  const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
   // Initials Generator
@@ -56,16 +54,21 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
         {/* FRONT */}
         <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-xl border-2 ${isHeld ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : tier.border} flex flex-col overflow-hidden backface-hidden`}>
             
-            {/* IMAGE AREA (Layered) */}
-            <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden`}>
+            {/* IMAGE AREA - FIXED: Added referrerPolicy and strict z-indexing */}
+            <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden min-h-0`}>
+                
+                {/* Fallback Initials */}
                 <div className="absolute inset-0 flex items-center justify-center z-0">
                     <span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">
                         {getInitials(meta.name)}
                     </span>
                 </div>
+
+                {/* Real Image: Added 'referrerPolicy' to bypass hotlink blocks */}
                 <img 
                     src={meta.image_url} 
                     alt={meta.name} 
+                    referrerPolicy="no-referrer"
                     className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
                     onError={(e) => { e.target.style.display = 'none'; }}
                 />
@@ -92,17 +95,14 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                 )}
             </div>
 
-            {/* DATA FOOTER (Contrast Fix) */}
+            {/* DATA FOOTER - FIXED: Added min-height to prevent collapse */}
             <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
-                {/* We removed the desktop stats to ensure the Score has full room */}
                 <div className="flex items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full">
                     
-                    {/* LABEL: Bright Yellow/Slate */}
+                    {/* LABEL & SCORE */}
                     <span className={`text-[10px] font-black uppercase mr-2 tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>
                         {isResultPhase ? 'FP' : 'PROJ'}
                     </span>
-                    
-                    {/* NUMBER: Bright White or Color Coded */}
                     <span className={`text-lg md:text-xl font-mono font-black tracking-tighter ${
                         isResultPhase 
                             ? (isWin ? 'text-green-400' : 'text-red-400') 
@@ -110,6 +110,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                     }`}>
                         {displayScore.toFixed(1)}
                     </span>
+
                 </div>
             </div>
 
