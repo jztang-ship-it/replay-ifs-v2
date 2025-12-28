@@ -1,65 +1,54 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import PageContainer from '../components/layout/PageContainer';
 
-export default function LoginPage({ onComplete }) {
-  const [email, setEmail] = useState('');
-  
-  const handleSocialLogin = (provider) => {
-    // Simulating a social login callback
-    onComplete(`User_${provider}`);
-  };
-
+export default function LoginPage() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 animate-in slide-in-from-bottom-10 fade-in duration-500">
-      
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
-        {/* Decorative Glow */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
-
-        <h2 className="text-3xl font-black italic text-white mb-2 text-center">WELCOME BACK</h2>
-        <p className="text-slate-500 text-center mb-8 text-sm">Login to access your wallet</p>
-
-        {/* SOCIAL BUTTONS */}
-        <div className="space-y-3 mb-8">
-          <button 
-            onClick={() => handleSocialLogin('Google')}
-            className="w-full bg-white text-slate-900 font-bold py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-slate-200 transition-colors"
-          >
-            <span className="text-lg">G</span> Continue with Google
-          </button>
+    <PageContainer>
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] bg-repeat">
+        
+        <div className="w-full max-w-sm bg-slate-900/90 backdrop-blur-md border border-slate-800 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
           
-          <button 
-            onClick={() => handleSocialLogin('Apple')}
-            className="w-full bg-slate-950 text-white border border-slate-700 font-bold py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-slate-800 transition-colors"
-          >
-            <span className="text-lg"></span> Continue with Apple
-          </button>
-        </div>
+          {/* UPDATED: Frenchie Logo */}
+          <div className="flex justify-center mb-6">
+             <div className="w-20 h-20 relative">
+                <img 
+                  src="/images/logo-frenchie.png" 
+                  alt="Replay Logo" 
+                  className="w-full h-full object-contain drop-shadow-xl"
+                />
+             </div>
+          </div>
 
-        {/* DIVIDER */}
-        <div className="flex items-center gap-4 mb-8 opacity-50">
-          <div className="h-px bg-slate-700 flex-1"></div>
-          <span className="text-slate-500 text-xs uppercase tracking-widest">Or via Email</span>
-          <div className="h-px bg-slate-700 flex-1"></div>
-        </div>
+          <h1 className="text-3xl font-black italic text-white text-center mb-2 uppercase tracking-tighter">
+            Player Login
+          </h1>
+          <p className="text-slate-500 text-center text-sm mb-8">
+            Enter the arena.
+          </p>
 
-        {/* TRADITIONAL FORM */}
-        <div className="space-y-4">
-          <input 
-            type="email" 
-            placeholder="Email Address" 
-            className="w-full bg-slate-950 border border-slate-700 text-white p-4 rounded-xl focus:border-blue-500 outline-none transition-colors"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button 
-            onClick={() => onComplete(email.split('@')[0] || 'PlayerOne')}
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black py-4 rounded-xl shadow-lg active:scale-95 transition-all uppercase tracking-wide"
-          >
-            LOG IN 
-          </button>
-        </div>
+          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+            <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Email</label>
+                <input type="email" placeholder="coach@replay.app" className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" />
+            </div>
+            <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Password</label>
+                <input type="password" placeholder="••••••••" className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" />
+            </div>
+            
+            <Link to="/" className="block w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-center rounded-xl transition-all shadow-lg uppercase tracking-widest mt-6">
+                Sign In
+            </Link>
+          </form>
 
+          <div className="mt-6 text-center">
+            <span className="text-slate-600 text-xs">Don't have an account? </span>
+            <span className="text-blue-400 text-xs font-bold cursor-pointer hover:underline">Scout New Team</span>
+          </div>
+
+        </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
