@@ -43,3 +43,32 @@
 1.  **Save Point**: Always create a feature branch (`git checkout -b feature-name`).
 2.  **Context**: Provide current file code before requesting changes.
 3.  **Verify**: Test on Localhost -> Push to Main -> Auto-Deploy to Vercel.
+## 📱 Mobile-First & Responsive Standards (Added Dec 2025)
+1. **Single Codebase:** We use a single React codebase. Use Tailwind's `md:` prefix for desktop-specific styles.
+2. **Card Layout:**
+   - **Mobile:** Flexbox wrapper. Cards are `w-[45%]` to create a 2-1-2 diamond formation.
+   - **Desktop:** CSS Grid (`grid-cols-5`).
+3. **Data Safety:**
+   - **Images:** Always use the `LiveCard` manual URL constructor (ID-based) as a fallback.
+   - **Colors:** Force Tailwind to keep tier colors (Amber/Purple/Blue) using a hidden safelist div.
+   - **Math:** The Hand Builder in `Play.jsx` must NEVER exceed the Salary Cap. Use a "Panic Mode" that finds the cheapest player (/bin/zsh.50), not the first player.
+
+## 📱 Mobile-First & Responsive Standards (Added Dec 2025)
+1. **Single Codebase:** We use a single React codebase. Use Tailwind's `md:` prefix for desktop-specific styles.
+2. **Card Layout:**
+   - **Mobile:** Flexbox wrapper. Cards are `w-[45%]` to create a 2-1-2 diamond formation.
+   - **Desktop:** CSS Grid (`grid-cols-5`).
+3. **Data Safety:**
+   - **Images:** Always use the `LiveCard` manual URL constructor (ID-based) as a fallback.
+   - **Colors:** Force Tailwind to keep tier colors (Amber/Purple/Blue) using a hidden safelist div.
+   - **Math:** The Hand Builder in `Play.jsx` must NEVER exceed the Salary Cap. Use a "Panic Mode" that finds the cheapest player (/bin/zsh.50), not the first player.
+
+## 📱 Mobile-First & Responsive Standards (Added Dec 2025)
+1. **Single Codebase:** We use a single React codebase. Use Tailwind's `md:` prefix for desktop-specific styles.
+2. **Card Layout:**
+   - **Mobile:** Flexbox wrapper. Cards are `w-[45%]` to create a 2-1-2 diamond formation.
+   - **Desktop:** CSS Grid (`grid-cols-5`).
+3. **Data Safety:**
+   - **Images:** Always use the `LiveCard` manual URL constructor (ID-based) as a fallback.
+   - **Colors:** Force Tailwind to keep tier colors (Amber/Purple/Blue) using a hidden safelist div.
+   - **Math:** The Hand Builder in `Play.jsx` must NEVER exceed the Salary Cap. Use a "Panic Mode" that finds the cheapest player (/bin/zsh.50), not the first player.
