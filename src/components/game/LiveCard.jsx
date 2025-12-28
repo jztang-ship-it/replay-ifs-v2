@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 // Card Back Component
 const CardBack = () => (
@@ -11,15 +11,17 @@ const CardBack = () => (
     </div>
 );
 
-// --- TIER COLOR LOGIC ---
+// TIER COLORS
 const getTierStyle = (cost) => {
-    if (cost >= 13) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400' }; // Legendary
-    if (cost >= 10) return { border: 'border-purple-400', text: 'text-purple-400', bg: 'bg-purple-400' }; // Epic
-    if (cost >= 7)  return { border: 'border-blue-400', text: 'text-blue-400', bg: 'bg-blue-400' };   // Rare
-    return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500' };         // Common
+    if (cost >= 13) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400', grad: 'from-amber-900 to-slate-900' };
+    if (cost >= 10) return { border: 'border-purple-400', text: 'text-purple-400', bg: 'bg-purple-400', grad: 'from-purple-900 to-slate-900' };
+    if (cost >= 7)  return { border: 'border-blue-400', text: 'text-blue-400', bg: 'bg-blue-400', grad: 'from-blue-900 to-slate-900' };
+    return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500', grad: 'from-slate-800 to-slate-900' };
 };
 
 export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceDown = false }) {
+  const [imgError, setImgError] = useState(false);
+
   // 1. Ghost Check
   if (!player || !player.id) {
       return (
@@ -36,14 +38,13 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
   const meta = (finalScore && finalScore.meta) ? finalScore.meta : player;
   const stats = (finalScore && finalScore.stats) ? finalScore.stats : (player.avg_stats || {});
   
-  // Safe Cost & Tier
   const safeCost = meta.cost !== undefined ? meta.cost : 0;
   const tier = getTierStyle(safeCost);
 
-  // Score Logic: Use 'score' if result exists, otherwise 'avg_fp' for projection
+  // Score Logic
+  // CHECK: Does player.avg_fp exist? If not, default to 0.
   const displayScore = isResultPhase ? (finalScore.score || 0) : (player.avg_fp || 0);
   
-  // Safe Stats
   const safeStats = {
       pts: stats.pts || '-', reb: stats.reb || '-', ast: stats.ast || '-',
       stl: stats.stl || '-', blk: stats.blk || '-', to: stats.to || '-'
@@ -51,8 +52,11 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
 
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
-  // FALLBACK IMAGE
-  const fallbackImage = "https://cdn.nba.com/headshots/nba/latest/1040x760/fallback.png";
+  // Initials Generator (e.g. "LeBron James" -> "LJ")
+  const getInitials = (name) => {
+      if (!name) return "??";
+      return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  };
 
   return (
     <div 
@@ -61,24 +65,27 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
     >
       <div className={`relative w-full h-full transition-all duration-500 transform-style-3d ${isFaceDown ? 'rotate-y-180' : 'rotate-y-0'}`}>
         
-        {/* FRONT OF CARD */}
-        {/* BORDER LOGIC: Use Tier Border, or Yellow if Held */}
+        {/* FRONT */}
         <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-xl border-2 ${isHeld ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : tier.border} flex flex-col overflow-hidden backface-hidden`}>
             
-            {/* IMAGE AREA */}
-            <div className="relative h-[65%] w-full bg-gradient-to-b from-slate-800 to-slate-950 overflow-hidden">
-                <img 
-                    src={meta.image_url} 
-                    alt={meta.name} 
-                    className="absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300"
-                    onError={(e) => {
-                        if (e.target.src !== fallbackImage) {
-                            e.target.src = fallbackImage;
-                        }
-                    }}
-                />
+            {/* IMAGE AREA (Flex-1 fills space) */}
+            <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden flex items-center justify-center`}>
                 
-                {/* Cost Badge (Color Coded) */}
+                {/* Fallback Initials (Visible if imgError is true) */}
+                {imgError ? (
+                    <span className="text-4xl md:text-6xl font-black text-white/10 tracking-tighter select-none">
+                        {getInitials(meta.name)}
+                    </span>
+                ) : (
+                    <img 
+                        src={meta.image_url} 
+                        alt={meta.name} 
+                        className="absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300"
+                        onError={() => setImgError(true)}
+                    />
+                )}
+                
+                {/* Cost Badge */}
                 <div className="absolute top-1 right-1 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10 z-20 flex items-center gap-1 shadow-lg">
                     <div className={`w-1.5 h-1.5 rounded-full ${tier.bg} animate-pulse`}></div>
                     <span className={`font-mono font-black text-[10px] md:text-xs ${tier.text}`}>
@@ -87,7 +94,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                 </div>
 
                 {/* Name Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-slate-950 via-slate-900/90 to-transparent flex flex-col justify-end p-2 md:p-3 pb-1 md:pb-2">
+                <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-slate-950 via-slate-900/90 to-transparent flex flex-col justify-end p-2 md:p-3 pb-1 md:pb-2 z-10">
                     <span className="text-[9px] md:text-xs text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5 md:mb-1 line-clamp-1">{meta.team || "NBA"}</span>
                     <span className="text-[11px] md:text-sm text-white font-black uppercase italic tracking-tighter leading-none line-clamp-1 drop-shadow-md">{meta.name || "Unknown"}</span>
                 </div>
@@ -101,24 +108,24 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
             </div>
 
             {/* DATA FOOTER */}
-            <div className="h-[35%] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10 shrink-0">
+            <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
                 
-                {/* Desktop Stats (Hidden on Mobile) */}
+                {/* Desktop Stats */}
                 <div className="hidden md:grid grid-cols-3 gap-y-0.5 gap-x-1 mb-0.5">
                     <div className="flex flex-col items-center"><span className="text-[9px] font-bold text-white leading-none">{safeStats.pts}</span><span className="text-[5px] text-slate-500 font-black uppercase">PTS</span></div>
                     <div className="flex flex-col items-center"><span className="text-[9px] font-bold text-white leading-none">{safeStats.reb}</span><span className="text-[5px] text-slate-500 font-black uppercase">REB</span></div>
                     <div className="flex flex-col items-center"><span className="text-[9px] font-bold text-white leading-none">{safeStats.ast}</span><span className="text-[5px] text-slate-500 font-black uppercase">AST</span></div>
                 </div>
 
-                {/* FP SCORE (Visible Always) */}
-                <div className="flex items-center justify-center bg-slate-900/50 rounded border border-white/5 py-0.5 md:py-1 w-full h-full max-h-[35px] md:max-h-none">
-                    <span className="text-[8px] md:text-[9px] text-slate-500 font-black uppercase mr-1.5 md:mr-2 tracking-widest">
+                {/* FP SCORE (High Visibility) */}
+                <div className="flex items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full">
+                    <span className="text-[9px] text-slate-400 font-black uppercase mr-2 tracking-widest">
                         {isResultPhase ? 'FP' : 'PROJ'}
                     </span>
                     <span className={`text-base md:text-xl font-mono font-black tracking-tighter ${
                         isResultPhase 
                             ? (isWin ? 'text-green-400' : 'text-red-400') 
-                            : 'text-slate-300'
+                            : 'text-white' 
                     }`}>
                         {displayScore.toFixed(1)}
                     </span>
@@ -127,7 +134,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
 
         </div>
 
-        {/* BACK OF CARD */}
+        {/* BACK */}
         <CardBack />
 
       </div>
