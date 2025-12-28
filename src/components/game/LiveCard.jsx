@@ -9,7 +9,7 @@ const CardBack = () => (
     </div>
 );
 
-// TIER LOGIC (Using strict strings to help Tailwind)
+// TIER LOGIC
 const getTierStyle = (cost) => {
     const val = parseFloat(cost || 0);
     if (val >= 5.0) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400', grad: 'from-amber-900' };
@@ -47,11 +47,7 @@ export default function LiveCard(props) {
   const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
-  const getInitials = (name) => name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : "??";
-
-  // --- IMAGE FIX: MANUAL CONSTRUCTION ---
-  // 1. Try provided URL (HTTPS forced)
-  // 2. If missing, build it from ID: https://cdn.nba.com/headshots/nba/latest/1040x760/{ID}.png
+  // URL CONSTRUCTOR
   let finalImage = meta.image_url ? meta.image_url.replace("http://", "https://") : "";
   if (!finalImage && meta.id) {
       finalImage = `https://cdn.nba.com/headshots/nba/latest/1040x760/${meta.id}.png`;
@@ -64,22 +60,15 @@ export default function LiveCard(props) {
     >
       <div className={`relative w-full h-full transition-all duration-500 transform-style-3d ${isFaceDown ? 'rotate-y-180' : 'rotate-y-0'}`}>
         
-        {/* TAILWIND SAFELIST (Hidden Vault) - Forces these colors to exist */}
+        {/* TAILWIND SAFELIST */}
         <div className="hidden border-amber-400 text-amber-400 bg-amber-400 from-amber-900 border-purple-400 text-purple-400 bg-purple-400 from-purple-900 border-blue-400 text-blue-400 bg-blue-400 from-blue-900 border-slate-600 text-slate-400 bg-slate-500 from-slate-800"></div>
 
         {/* FRONT */}
         <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-xl border-2 ${isHeld ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : tier.border} flex flex-col overflow-hidden backface-hidden`}>
             
-            {/* IMAGE AREA */}
+            {/* IMAGE AREA - CLEAN: Removed Initials Layer */}
             <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} to-slate-950 overflow-hidden min-h-0`}>
                 
-                {/* Initials (Background) */}
-                <div className="absolute inset-0 flex items-center justify-center z-0">
-                    <span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">
-                        {getInitials(meta.name)}
-                    </span>
-                </div>
-
                 {/* Real Image */}
                 {!imgError && finalImage && (
                     <img 
@@ -116,7 +105,6 @@ export default function LiveCard(props) {
             {/* DATA FOOTER */}
             <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
                 <div className="flex flex-col items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full overflow-hidden">
-                    
                     <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>
                             {isResultPhase ? 'FP' : 'PROJ'}
@@ -129,7 +117,6 @@ export default function LiveCard(props) {
                             {displayScore.toFixed(1)}
                         </span>
                     </div>
-
                 </div>
             </div>
 
