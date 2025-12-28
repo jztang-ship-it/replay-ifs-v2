@@ -23,4 +23,5 @@
 
 ## 4. CODING STYLE
 - **Tailwind**: Use arbitrary values (`h-[calc(100vh-64px)]`) only when necessary for the Smart Shell layout.
-- **Imports**: Always double-check imports (e.g., `useBankroll` requires `{}`).
+- **Imports**: Always double-check imports (e.g., `useBankroll` requires `{}`).- CRITICAL: The Hand Builder logic in Play.jsx MUST strictly respect the SALARY_CAP. Never use a 'greedy' algorithm that spends budget early. Always reserve budget for remaining slots. If stuck, fill with cheapest available player.
+- CRITICAL: The Hand Builder logic in Play.jsx MUST strictly respect the SALARY_CAP. Never use a 'greedy' algorithm that spends budget early. Always reserve budget for remaining slots. If stuck, fill with cheapest available player.
