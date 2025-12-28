@@ -1,40 +1,45 @@
-# PROJECT: NBA REPLAY v2
+# PROJECT: REPLAY - IFS (Interactive Fantasy Sports)
 
-## 1. CORE ARCHITECTURE
-- **Root**: `main.jsx` wraps everything in `<BankrollProvider>`.
-- **Routing**: `App.jsx` handles `BrowserRouter` and Routes.
-- **Layout Strategy ("Smart App Shell")**:
-  - **Global**: `PageContainer.jsx` sets `h-screen w-full overflow-hidden`.
-  - **Scroll Policy**: The window **NEVER** scrolls.
-  - **Content**: Inner pages use `flex-1` and `overflow-y-auto` to manage their own scrolling.
-  - **Headers**: Managed by `PageContainer` (NOT `App.jsx`).
+## 1. CORE IDENTITY
+- **Product**: A modular "Instant Fantasy" betting platform.
+- **Hook**: Simplified DFS (Daily Fantasy Sports). Build a 5-player lineup under a Salary Cap.
+- **Platform**: Mobile-First Web App.
 
-## 2. GOLD STANDARD UI RULES
+## 2. CURRENT ARCHITECTURE (The "Golden Copy")
+- **Frontend**: React + Vite + Tailwind CSS.
+- **State**: Global `BankrollContext` (User money/XP) and `BrowserRouter` (Navigation).
+- **Layout**: "Smart App Shell" (Locked `100vh`, internal scrolling).
+- **Data**: Static "Real Data" DB (`real_nba_db.js`).
 
-### A. The Play Page
-- **Layout**: Flex Column (Header -> Jackpot -> Cards -> Footer). No gap above Jackpot.
-- **Budget Display**:
-  - **Format**: **$15.0** (Constant Anchor) + **(Remaining)**.
-  - **Logic**: Parenthesis shows `$15.0 - Current_Liability`.
-  - **Liability**: During Deal = Cost of Holds. During Reveal = Cost of Full Hand.
-- **Card Grid**: Scrolls independently behind the footer.
+## 3. ROADMAP & PRIORITIES
 
-### B. The LiveCard Component
-- **Visuals**: Flip animation, High-Res Headshot (scaled 125%), Black Cost Badge.
-- **Stats**: TWO rows. (PTS/REB/AST) and (STL/BLK/TO).
-- **Data**: **REAL DATA ONLY**. If `avg_stats` is missing in DB, show "-". Do not calculate/guess.
+### PHASE 1: DISTRIBUTION (Current Focus)
+- **Goal**: Get the app live and playable on mobile devices.
+- **Tasks**:
+  1. **Deployment**: Host on Vercel.
+  2. **Mobile Polish**: Ensure Card Grid uses 2 columns on mobile, 5 on desktop.
+  3. **Touch Targets**: Buttons must be "Thumb-Friendly" (>44px).
 
-### C. Feature Tabs
-- **Pulse**: News Aggregator, Social Feed, Chat. (NOT a betting ticker).
-- **Collect**: VIP Tiers, Daily Tasks, Slot Machine. (NOT a card gallery).
+### PHASE 2: MODULARITY (Next Up)
+- **Goal**: Decouple the engine from NBA-specifics.
+- **Refactor**:
+  - Create `SportConfig` object (defines Salary Cap, Stat Labels, Scoring Math).
+  - Rename `real_nba_db.js` to `data_nba.js` and add `data_nfl.js`.
+  - Update `LiveCard` to render dynamic stat labels.
 
-## 3. DATA INTEGRITY
-- **Source**: `src/data/real_nba_db.js`.
-- **Immutable Rule**: We never simulate stats. We display what is in the DB.
+### PHASE 3: RETENTION (Later)
+- **Pulse**: Real-time social feed.
+- **Collect**: VIP progression systems.
 
-## 4. CURRENT STATUS
-- **Architecture**: Stable (Smart Shell + Global Context).
-- **Play**: Complete (Layout & Math fixed).
-- **Pulse**: Functional (News/Social).
-- **Collect**: Functional (VIP/Tasks).
-- **Home**: Static Landing.
+## 4. UI/UX RULES (Immutable)
+- **Play Page**:
+  - **Budget Math**: Always display `$15.0 (Remaining)`.
+  - **Grid**: No global scroll. Cards scroll independently.
+- **LiveCard**:
+  - **Visuals**: High-Res Headshot, Black Cost Badge.
+  - **Stats**: Must handle missing data gracefully.
+
+## 5. DEVELOPMENT PROTOCOL ("Ironclad Vibe Coding")
+1.  **Save Point**: Always create a feature branch (`git checkout -b feature-name`).
+2.  **Context**: Provide current file code before requesting changes.
+3.  **Verify**: Test on Localhost -> Push to Main -> Auto-Deploy to Vercel.

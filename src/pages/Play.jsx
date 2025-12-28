@@ -31,7 +31,7 @@ const TeamScoreRoller = ({ value }) => {
 
 const WinText = ({ label, color }) => (
   <div className="flex flex-col items-center animate-bounce-short">
-    <span className={`text-5xl font-black italic uppercase drop-shadow-2xl ${color} stroke-black tracking-tighter`}>{label}</span>
+    <span className={`text-3xl md:text-5xl font-black italic uppercase drop-shadow-2xl ${color} stroke-black tracking-tighter`}>{label}</span>
   </div>
 );
 
@@ -177,23 +177,16 @@ export default function Play() {
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
   const isFaceDown = (i) => (gamePhase === 'START') || (gamePhase === 'DEALING' && i > sequencerIndex) || (gamePhase === 'DRAWING' && !heldIndices.includes(i)) || (gamePhase === 'REVEALING' && i > sequencerIndex && !heldIndices.includes(i));
   
-  // --- MATH CORRECTION ---
-  // 1. Calculate cost of ALL currently visible cards
+  // --- MATH ---
   const totalHandCost = hand.reduce((acc, p) => acc + (p ? p.cost : 0), 0);
-  
-  // 2. Calculate cost of HELD cards only
   const heldCost = heldIndices.reduce((acc, idx) => acc + (hand[idx] ? hand[idx].cost : 0), 0);
 
-  // 3. Determine "Remaining" to display based on Phase
   let displayRemaining = SALARY_CAP;
   if (gamePhase === 'DEALT') {
-      // Scenario A: "What I have left to spend" (15 - Holds)
       displayRemaining = SALARY_CAP - heldCost;
   } else if (gamePhase === 'REVEALING' || gamePhase === 'END' || gamePhase === 'DRAWING') {
-      // Scenario B: "What I have left unused" (15 - Total Hand)
       displayRemaining = SALARY_CAP - totalHandCost;
   }
-  // (In START/DEALING, it defaults to 15.0)
 
   const betOpts = [1, 3, 5, 10, 20];
 
@@ -205,8 +198,9 @@ export default function Play() {
           <JackpotBar addAmount={jackpotContribution} />
         </div>
         
+        {/* RESPONSIVE GRID: grid-cols-2 on mobile, md:grid-cols-5 on desktop */}
         <div className="flex-1 flex flex-col items-center justify-center relative z-20 min-h-0 w-full overflow-y-auto custom-scrollbar">
-           <div className="w-full h-full max-h-[65vh] grid grid-cols-5 gap-2 px-3 pb-2">
+           <div className="w-full h-full max-h-[65vh] grid grid-cols-2 md:grid-cols-5 gap-2 px-2 md:px-3 pb-2">
               {hand.length === 0 ? 
                  Array.from({length:5}).map((_,i) => <div key={i} className="h-full w-full"><LiveCard isFaceDown={true}/></div>) 
               : 
@@ -215,37 +209,36 @@ export default function Play() {
            </div>
         </div>
 
-        <div className="shrink-0 w-full bg-slate-950 border-t border-slate-900 p-4 pb-8 z-50 shadow-[0_-5px_25px_rgba(0,0,0,0.5)]">
+        {/* FOOTER */}
+        <div className="shrink-0 w-full bg-slate-950 border-t border-slate-900 p-3 md:p-4 pb-6 md:pb-8 z-50 shadow-[0_-5px_25px_rgba(0,0,0,0.5)]">
             <div className="max-w-xl mx-auto flex flex-col gap-3">
             
-            <div className="flex items-center justify-between h-16 bg-slate-900 rounded-xl border border-slate-800 px-3 relative overflow-hidden">
-                <div className="flex flex-col leading-tight min-w-[80px] z-10">
-                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">BUDGET</span>
+            <div className="flex items-center justify-between h-14 md:h-16 bg-slate-900 rounded-xl border border-slate-800 px-3 relative overflow-hidden">
+                <div className="flex flex-col leading-tight min-w-[70px] md:min-w-[80px] z-10">
+                    <span className="text-[8px] md:text-[9px] text-slate-500 font-black uppercase tracking-widest">BUDGET</span>
                     <div className="flex items-baseline gap-1">
-                        {/* 1. Constant Anchor: Always $15.0 */}
-                        <span className="font-mono font-black text-lg text-white">${SALARY_CAP.toFixed(1)}</span>
-                        
-                        {/* 2. Parenthesis: Remaining Budget (Changes based on phase) */}
-                        <span className={`font-mono font-bold text-[10px] ${displayRemaining < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        <span className="font-mono font-black text-sm md:text-lg text-white">${SALARY_CAP.toFixed(1)}</span>
+                        <span className={`font-mono font-bold text-[9px] md:text-[10px] ${displayRemaining < 0 ? 'text-red-500' : 'text-green-500'}`}>
                            ({displayRemaining >= 0 ? '+' : ''}{displayRemaining.toFixed(1)})
                         </span>
                     </div>
                 </div>
 
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                    {gamePhase === 'DEALT' && <div className="bg-black/60 px-4 py-1 rounded-full border border-orange-500/30 animate-pulse"><span className="text-orange-400 text-[10px] font-black uppercase tracking-[0.2em]">Hold and Draw</span></div>}
+                    {gamePhase === 'DEALT' && <div className="bg-black/60 px-3 md:px-4 py-1 rounded-full border border-orange-500/30 animate-pulse"><span className="text-orange-400 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em]">Hold and Draw</span></div>}
                     {gamePhase === 'END' && payoutResult && <WinText label={payoutResult.label} color={payoutResult.color} />}
                 </div>
 
-                <div className="flex items-center gap-3 z-10">
+                <div className="flex items-center gap-2 md:gap-3 z-10">
                     <div className="flex flex-col items-end leading-none">
                         <div className="flex items-center gap-1 mb-1">
-                            <span className="text-[9px] text-blue-400 font-black uppercase tracking-widest">TEAM FP</span>
+                            <span className="text-[8px] md:text-[9px] text-blue-400 font-black uppercase tracking-widest">TEAM FP</span>
                             <button onClick={() => setShowRules(true)} className="w-3 h-3 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[8px] text-slate-400 hover:text-white hover:border-slate-400">?</button>
                         </div>
-                        <span className="text-2xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
+                        <span className="text-xl md:text-2xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
                     </div>
-                    <div className="grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
+                    {/* Badge List Hidden on very small screens if needed, or scaled */}
+                    <div className="hidden md:grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
                         {badgeList.map((b, i) => (
                             <div key={i} className="flex items-center gap-0.5" title={b.label}>
                                 <span className="text-[10px]">{b.emoji}</span>
@@ -257,12 +250,12 @@ export default function Play() {
             </div>
 
             <div className="flex justify-between items-center px-1">
-                <div className="flex gap-1.5">{betOpts.map(m => (<button key={m} onClick={() => setBetMultiplier(m)} disabled={gamePhase !== 'START' && gamePhase !== 'END' && gamePhase !== 'DEALT'} className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${betMultiplier === m ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{m===20?'MAX':`${m}x`}</button>))}</div>
-                <div className="text-right"><span className="text-[9px] text-slate-500 uppercase font-bold block">Total Bet</span><span className="text-white font-mono font-bold text-sm">${10 * betMultiplier}</span></div>
+                <div className="flex gap-1.5">{betOpts.map(m => (<button key={m} onClick={() => setBetMultiplier(m)} disabled={gamePhase !== 'START' && gamePhase !== 'END' && gamePhase !== 'DEALT'} className={`px-2 md:px-3 py-1.5 rounded-md text-[9px] md:text-[10px] font-bold transition-all ${betMultiplier === m ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{m===20?'MAX':`${m}x`}</button>))}</div>
+                <div className="text-right"><span className="text-[8px] md:text-[9px] text-slate-500 uppercase font-bold block">Total Bet</span><span className="text-white font-mono font-bold text-xs md:text-sm">${10 * betMultiplier}</span></div>
             </div>
             
             <div className="flex gap-2">
-                <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleReplay:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`py-4 text-white font-black rounded-xl shadow-lg transition-all text-sm tracking-[0.2em] uppercase flex-1 ${gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'?'bg-slate-800 text-slate-500':(gamePhase==='END'?'bg-green-600 hover:brightness-110':'bg-blue-600 hover:brightness-110')} active:scale-95`}>
+                <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleReplay:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`py-3 md:py-4 text-white font-black rounded-xl shadow-lg transition-all text-xs md:text-sm tracking-[0.2em] uppercase flex-1 ${gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'?'bg-slate-800 text-slate-500':(gamePhase==='END'?'bg-green-600 hover:brightness-110':'bg-blue-600 hover:brightness-110')} active:scale-95`}>
                     {gamePhase==='DEALT'?'DRAW':(gamePhase==='END'?'REPLAY':(gamePhase==='DEALING'?'DEALING...':'DEAL'))}
                 </button>
             </div>
