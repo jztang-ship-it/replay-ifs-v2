@@ -13,7 +13,7 @@ export default function HomePage() {
           <div className="flex justify-center mb-6">
              <div className="w-24 h-24 relative">
                 <img 
-                  src="/images/logo-frenchie.png" 
+                  src="/images/frenchie-final.png" 
                   alt="Replay Frenchie" 
                   className="w-full h-full object-contain drop-shadow-2xl"
                 />

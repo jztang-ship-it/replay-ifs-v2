@@ -13,7 +13,7 @@ export default function LoginPage() {
           <div className="flex justify-center mb-6">
              <div className="w-20 h-20 relative">
                 <img 
-                  src="/images/logo-frenchie.png" 
+                  src="/images/frenchie-final.png" 
                   alt="Replay Logo" 
                   className="w-full h-full object-contain drop-shadow-xl"
                 />

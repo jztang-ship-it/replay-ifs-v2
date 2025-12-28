@@ -11,7 +11,7 @@ const CardBack = () => (
             
             {/* 3. LOGO ON CARD BACK */}
             <img 
-                src="/images/logo-frenchie.png" 
+                src="/images/frenchie-final.png" 
                 alt="Replay Logo" 
                 className="w-20 h-20 object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] relative z-10 opacity-90"
             />
