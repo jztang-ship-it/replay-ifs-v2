@@ -59,6 +59,17 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
   };
 
   return (
+    // ... inside the return (
+<div onClick={onToggle} className="...">
+    
+    {/* --- DEBUG LINE: REMOVE LATER --- */}
+    <div className="absolute z-50 top-0 left-0 bg-black/80 text-[6px] text-green-400 p-1 w-full break-all">
+       ID:{player?.id} | COST:{player?.cost} | NAME:{player?.name}
+    </div>
+    {/* ------------------------------- */}
+
+    <div className={`relative w-full h-full ...`}>
+       {/* ... rest of the card ... */}
     <div 
       onClick={onToggle}
       className={`relative w-full h-full perspective-1000 cursor-pointer transition-transform duration-200 active:scale-95 ${isHeld ? 'z-10' : 'z-0'}`}
