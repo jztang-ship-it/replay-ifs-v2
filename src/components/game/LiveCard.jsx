@@ -18,10 +18,10 @@ const getTierStyle = (cost) => {
 };
 
 export default function LiveCard(props) {
-  // NEW: Track image error state
+  // 1. IMAGE STATE (This fixes the broken icon issue)
   const [imgError, setImgError] = useState(false);
 
-  // UNWRAP LOGIC
+  // 2. UNWRAP LOGIC
   let player = props.player;
   if (player && player.player) player = player.player; 
   if (player && player.meta) player = player.meta;
@@ -45,9 +45,9 @@ export default function LiveCard(props) {
   const tier = getTierStyle(safeCost);
 
   // PROJECTED FP LOOKUP (Try every possible name)
-  const rawProj = meta.avg_fp || meta.fp_avg || meta.projected || player.avg_fp || 0;
+  // We check: avg_fp, fp, projected, fppg
+  const rawProj = meta.avg_fp || meta.fp || meta.projected || meta.fppg || player.avg_fp || 0;
   
-  // DISPLAY LOGIC
   const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
@@ -69,7 +69,7 @@ export default function LiveCard(props) {
             {/* IMAGE AREA */}
             <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden min-h-0`}>
                 
-                {/* LAYER 1: Initials (Always rendered at bottom) */}
+                {/* LAYER 1: Initials (Always visible at bottom) */}
                 <div className="absolute inset-0 flex items-center justify-center z-0">
                     <span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">
                         {getInitials(meta.name)}
@@ -83,7 +83,7 @@ export default function LiveCard(props) {
                         alt={meta.name} 
                         referrerPolicy="no-referrer"
                         className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
-                        onError={() => setImgError(true)} // Triggers re-render to remove this tag
+                        onError={() => setImgError(true)} // This triggers re-render to remove the broken tag
                     />
                 )}
                 
@@ -100,7 +100,7 @@ export default function LiveCard(props) {
                     <span className="text-[9px] md:text-xs text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5 md:mb-1 line-clamp-1">{meta.team || "NBA"}</span>
                     <span className="text-[11px] md:text-sm text-white font-black uppercase italic tracking-tighter leading-none line-clamp-1 drop-shadow-md">{meta.name || "Unknown"}</span>
                 </div>
-                
+
                 {/* Hold Badge */}
                 {isHeld && (
                     <div className="absolute bottom-1 right-1 bg-yellow-400 text-black text-[8px] md:text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-lg animate-pulse z-30">
@@ -111,7 +111,7 @@ export default function LiveCard(props) {
 
             {/* DATA FOOTER */}
             <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
-                <div className="flex flex-col items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full">
+                <div className="flex flex-col items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full overflow-hidden">
                     
                     <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>
@@ -126,11 +126,12 @@ export default function LiveCard(props) {
                         </span>
                     </div>
 
-                    {/* DEBUGGER: Shows raw data if score is missing */}
+                    {/* --- AUTOPSY REPORT: THE TRUTH SERUM --- */}
+                    {/* Prints ALL data keys if score is missing */}
                     {(!isResultPhase && displayScore === 0) && (
-                         <span className="text-[6px] text-yellow-500/50 leading-none">
-                            Raw: {rawProj}
-                         </span>
+                         <div className="text-[5px] text-green-400 leading-none text-left w-full px-1 break-all">
+                            {JSON.stringify(player).slice(0, 150)}
+                         </div>
                     )}
 
                 </div>
