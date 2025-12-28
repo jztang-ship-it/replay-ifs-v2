@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const CardBack = () => (
     <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shadow-2xl backface-hidden rotate-y-180">
@@ -18,16 +18,17 @@ const getTierStyle = (cost) => {
 };
 
 export default function LiveCard(props) {
-  // --- 1. UNWRAP LOGIC (The Fix) ---
-  // Sometimes data gets wrapped like { player: { id: 1... } }
-  // We check if 'props.player' has a property called 'player' or 'meta' inside it.
+  // NEW: Track image error state
+  const [imgError, setImgError] = useState(false);
+
+  // UNWRAP LOGIC
   let player = props.player;
   if (player && player.player) player = player.player; 
-  if (player && player.meta) player = player.meta; // Handle result objects passed as players
+  if (player && player.meta) player = player.meta;
 
   const { isHeld, onToggle, finalScore, isFaceDown = false } = props;
 
-  // 2. Ghost Check
+  // GHOST CHECK
   if (!player || (!player.id && !player.name)) {
       return (
           <div className="relative w-full h-full perspective-1000 group">
@@ -36,27 +37,24 @@ export default function LiveCard(props) {
       );
   }
 
-  // 3. Data Setup
+  // DATA SETUP
   const isResultPhase = !!finalScore;
   const meta = (finalScore && finalScore.meta) ? finalScore.meta : player;
   
-  // DEEP SEARCH for Cost & FP
   const safeCost = meta.cost !== undefined ? meta.cost : (meta.price || 0);
   const tier = getTierStyle(safeCost);
 
-  // DEEP SEARCH for Proj FP
-  const rawProj = meta.avg_fp || meta.fp || meta.projected || player.avg_fp || 0;
+  // PROJECTED FP LOOKUP (Try every possible name)
+  const rawProj = meta.avg_fp || meta.fp_avg || meta.projected || player.avg_fp || 0;
+  
+  // DISPLAY LOGIC
   const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
-  // Initials Generator
   const getInitials = (name) => {
       if (!name) return "??";
       return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   };
-
-  // DEBUG: If Cost is 0, show us why (remove this after fix)
-  const isBroken = safeCost === 0 && rawProj === 0;
 
   return (
     <div 
@@ -71,21 +69,23 @@ export default function LiveCard(props) {
             {/* IMAGE AREA */}
             <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden min-h-0`}>
                 
-                {/* Fallback Initials */}
+                {/* LAYER 1: Initials (Always rendered at bottom) */}
                 <div className="absolute inset-0 flex items-center justify-center z-0">
                     <span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">
                         {getInitials(meta.name)}
                     </span>
                 </div>
 
-                {/* Real Image */}
-                <img 
-                    src={meta.image_url} 
-                    alt={meta.name} 
-                    referrerPolicy="no-referrer"
-                    className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                />
+                {/* LAYER 2: Real Image (Only render if NO ERROR) */}
+                {!imgError && (
+                    <img 
+                        src={meta.image_url} 
+                        alt={meta.name} 
+                        referrerPolicy="no-referrer"
+                        className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
+                        onError={() => setImgError(true)} // Triggers re-render to remove this tag
+                    />
+                )}
                 
                 {/* Cost Badge */}
                 <div className="absolute top-1 right-1 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10 z-20 flex items-center gap-1 shadow-lg">
@@ -113,7 +113,6 @@ export default function LiveCard(props) {
             <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
                 <div className="flex flex-col items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full">
                     
-                    {/* LABEL & SCORE */}
                     <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>
                             {isResultPhase ? 'FP' : 'PROJ'}
@@ -127,11 +126,11 @@ export default function LiveCard(props) {
                         </span>
                     </div>
 
-                    {/* LAST RESORT DEBUGGER: If data is still missing, it prints the keys found */}
-                    {isBroken && (
-                        <div className="text-[5px] text-red-500 absolute bottom-0 bg-black w-full text-center">
-                            MISSING DATA. KEYS: {Object.keys(player).join(',')}
-                        </div>
+                    {/* DEBUGGER: Shows raw data if score is missing */}
+                    {(!isResultPhase && displayScore === 0) && (
+                         <span className="text-[6px] text-yellow-500/50 leading-none">
+                            Raw: {rawProj}
+                         </span>
                     )}
 
                 </div>
