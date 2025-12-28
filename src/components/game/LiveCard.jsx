@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 // Card Back Component
 const CardBack = () => (
@@ -20,8 +20,6 @@ const getTierStyle = (cost) => {
 };
 
 export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceDown = false }) {
-  const [imgError, setImgError] = useState(false);
-
   // 1. Ghost Check
   if (!player || !player.id) {
       return (
@@ -42,7 +40,6 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
   const tier = getTierStyle(safeCost);
 
   // Score Logic
-  // CHECK: Does player.avg_fp exist? If not, default to 0.
   const displayScore = isResultPhase ? (finalScore.score || 0) : (player.avg_fp || 0);
   
   const safeStats = {
@@ -52,24 +49,13 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
 
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
-  // Initials Generator (e.g. "LeBron James" -> "LJ")
+  // Initials Generator
   const getInitials = (name) => {
       if (!name) return "??";
       return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   };
 
   return (
-    // ... inside the return (
-<div onClick={onToggle} className="...">
-    
-    {/* --- DEBUG LINE: REMOVE LATER --- */}
-    <div className="absolute z-50 top-0 left-0 bg-black/80 text-[6px] text-green-400 p-1 w-full break-all">
-       ID:{player?.id} | COST:{player?.cost} | NAME:{player?.name}
-    </div>
-    {/* ------------------------------- */}
-
-    <div className={`relative w-full h-full ...`}>
-       {/* ... rest of the card ... */}
     <div 
       onClick={onToggle}
       className={`relative w-full h-full perspective-1000 cursor-pointer transition-transform duration-200 active:scale-95 ${isHeld ? 'z-10' : 'z-0'}`}
@@ -79,22 +65,25 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
         {/* FRONT */}
         <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-xl border-2 ${isHeld ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : tier.border} flex flex-col overflow-hidden backface-hidden`}>
             
-            {/* IMAGE AREA (Flex-1 fills space) */}
-            <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden flex items-center justify-center`}>
+            {/* IMAGE AREA (Layered) */}
+            <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden`}>
                 
-                {/* Fallback Initials (Visible if imgError is true) */}
-                {imgError ? (
-                    <span className="text-4xl md:text-6xl font-black text-white/10 tracking-tighter select-none">
+                {/* LAYER 1: Initials (Always visible at the bottom) */}
+                <div className="absolute inset-0 flex items-center justify-center z-0">
+                    <span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">
                         {getInitials(meta.name)}
                     </span>
-                ) : (
-                    <img 
-                        src={meta.image_url} 
-                        alt={meta.name} 
-                        className="absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300"
-                        onError={() => setImgError(true)}
-                    />
-                )}
+                </div>
+
+                {/* LAYER 2: Real Image (Sits on top. If it loads, it hides layer 1) */}
+                <img 
+                    src={meta.image_url} 
+                    alt={meta.name} 
+                    className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
+                    onError={(e) => {
+                        e.target.style.display = 'none'; // If error, hide image so Initials show
+                    }}
+                />
                 
                 {/* Cost Badge */}
                 <div className="absolute top-1 right-1 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10 z-20 flex items-center gap-1 shadow-lg">
@@ -105,7 +94,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                 </div>
 
                 {/* Name Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-slate-950 via-slate-900/90 to-transparent flex flex-col justify-end p-2 md:p-3 pb-1 md:pb-2 z-10">
+                <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-slate-950 via-slate-900/90 to-transparent flex flex-col justify-end p-2 md:p-3 pb-1 md:pb-2 z-20">
                     <span className="text-[9px] md:text-xs text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5 md:mb-1 line-clamp-1">{meta.team || "NBA"}</span>
                     <span className="text-[11px] md:text-sm text-white font-black uppercase italic tracking-tighter leading-none line-clamp-1 drop-shadow-md">{meta.name || "Unknown"}</span>
                 </div>
@@ -120,7 +109,6 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
 
             {/* DATA FOOTER */}
             <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
-                
                 {/* Desktop Stats */}
                 <div className="hidden md:grid grid-cols-3 gap-y-0.5 gap-x-1 mb-0.5">
                     <div className="flex flex-col items-center"><span className="text-[9px] font-bold text-white leading-none">{safeStats.pts}</span><span className="text-[5px] text-slate-500 font-black uppercase">PTS</span></div>
@@ -128,7 +116,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                     <div className="flex flex-col items-center"><span className="text-[9px] font-bold text-white leading-none">{safeStats.ast}</span><span className="text-[5px] text-slate-500 font-black uppercase">AST</span></div>
                 </div>
 
-                {/* FP SCORE (High Visibility) */}
+                {/* FP SCORE */}
                 <div className="flex items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full">
                     <span className="text-[9px] text-slate-400 font-black uppercase mr-2 tracking-widest">
                         {isResultPhase ? 'FP' : 'PROJ'}
