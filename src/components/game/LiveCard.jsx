@@ -9,16 +9,17 @@ const CardBack = () => (
     </div>
 );
 
-// TIER COLORS
+// --- UPDATED TIER THRESHOLDS (Adjusted for your $1-6 salary scale) ---
 const getTierStyle = (cost) => {
-    if (cost >= 13) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400', grad: 'from-amber-900 to-slate-900' };
-    if (cost >= 10) return { border: 'border-purple-400', text: 'text-purple-400', bg: 'bg-purple-400', grad: 'from-purple-900 to-slate-900' };
-    if (cost >= 7)  return { border: 'border-blue-400', text: 'text-blue-400', bg: 'bg-blue-400', grad: 'from-blue-900 to-slate-900' };
-    return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500', grad: 'from-slate-800 to-slate-900' };
+    // Embiid is 5.9, Curry is 4.3. Let's map them correctly.
+    const val = parseFloat(cost || 0);
+    if (val >= 5.0) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400', grad: 'from-amber-900 to-slate-900' }; // Legendary ($5+)
+    if (val >= 4.0) return { border: 'border-purple-400', text: 'text-purple-400', bg: 'bg-purple-400', grad: 'from-purple-900 to-slate-900' }; // Epic ($4-5)
+    if (val >= 2.5) return { border: 'border-blue-400', text: 'text-blue-400', bg: 'bg-blue-400', grad: 'from-blue-900 to-slate-900' };   // Rare ($2.5-4)
+    return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500', grad: 'from-slate-800 to-slate-900' };         // Common (<$2.5)
 };
 
 export default function LiveCard(props) {
-  // IMAGE STATE
   const [imgError, setImgError] = useState(false);
 
   // UNWRAP LOGIC
@@ -44,8 +45,7 @@ export default function LiveCard(props) {
   const safeCost = meta.cost !== undefined ? meta.cost : (meta.price || 0);
   const tier = getTierStyle(safeCost);
 
-  // --- THE FIX IS HERE ---
-  // Added 'meta.avg' to the front of the line!
+  // SCORE LOGIC (Kept the 'avg' fix!)
   const rawProj = meta.avg || meta.avg_fp || meta.fp || meta.projected || 0;
   
   const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
@@ -55,6 +55,10 @@ export default function LiveCard(props) {
       if (!name) return "??";
       return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   };
+
+  // --- IMAGE HTTPS FIX ---
+  // Ensure we always request the secure version of the image
+  const secureImage = meta.image_url ? meta.image_url.replace("http://", "https://") : "";
 
   return (
     <div 
@@ -76,10 +80,10 @@ export default function LiveCard(props) {
                     </span>
                 </div>
 
-                {/* LAYER 2: Real Image */}
-                {!imgError && (
+                {/* LAYER 2: Real Image (HTTPS Enforced) */}
+                {!imgError && secureImage && (
                     <img 
-                        src={meta.image_url} 
+                        src={secureImage} 
                         alt={meta.name} 
                         referrerPolicy="no-referrer"
                         className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
