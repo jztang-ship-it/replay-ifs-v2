@@ -5,7 +5,6 @@ const CardBack = () => (
     <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shadow-2xl backface-hidden rotate-y-180">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30 mix-blend-overlay"></div>
         <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-950 flex flex-col items-center justify-center relative">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent opacity-50"></div>
             <span className="text-xl md:text-4xl font-black italic text-slate-800 drop-shadow-sm transform -rotate-12 select-none">REPLAY</span>
         </div>
     </div>
@@ -20,33 +19,25 @@ const getTierStyle = (cost) => {
 };
 
 export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceDown = false }) {
-  // 1. Ghost Check
   if (!player || !player.id) {
       return (
           <div className="relative w-full h-full perspective-1000 group">
-             <div className="relative w-full h-full transition-all duration-500 transform-style-3d rotate-y-180">
-                 <CardBack />
-             </div>
+             <div className="relative w-full h-full transition-all duration-500 transform-style-3d rotate-y-180"><CardBack /></div>
           </div>
       );
   }
 
-  // 2. Data Setup
+  // DATA SETUP
   const isResultPhase = !!finalScore;
   const meta = (finalScore && finalScore.meta) ? finalScore.meta : player;
-  const stats = (finalScore && finalScore.stats) ? finalScore.stats : (player.avg_stats || {});
   
   const safeCost = meta.cost !== undefined ? meta.cost : 0;
   const tier = getTierStyle(safeCost);
 
-  // Score Logic
+  // SCORE LOGIC (Critical Fix)
+  // If result phase, use finalScore.score. 
+  // If deal phase, use player.avg_fp. Default to 0 if missing.
   const displayScore = isResultPhase ? (finalScore.score || 0) : (player.avg_fp || 0);
-  
-  const safeStats = {
-      pts: stats.pts || '-', reb: stats.reb || '-', ast: stats.ast || '-',
-      stl: stats.stl || '-', blk: stats.blk || '-', to: stats.to || '-'
-  };
-
   const isWin = isResultPhase && displayScore > (safeCost * 4); 
 
   // Initials Generator
@@ -67,22 +58,16 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
             
             {/* IMAGE AREA (Layered) */}
             <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} overflow-hidden`}>
-                
-                {/* LAYER 1: Initials (Always visible at the bottom) */}
                 <div className="absolute inset-0 flex items-center justify-center z-0">
                     <span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">
                         {getInitials(meta.name)}
                     </span>
                 </div>
-
-                {/* LAYER 2: Real Image (Sits on top. If it loads, it hides layer 1) */}
                 <img 
                     src={meta.image_url} 
                     alt={meta.name} 
                     className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300"
-                    onError={(e) => {
-                        e.target.style.display = 'none'; // If error, hide image so Initials show
-                    }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
                 />
                 
                 {/* Cost Badge */}
@@ -107,21 +92,18 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                 )}
             </div>
 
-            {/* DATA FOOTER */}
+            {/* DATA FOOTER (Contrast Fix) */}
             <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
-                {/* Desktop Stats */}
-                <div className="hidden md:grid grid-cols-3 gap-y-0.5 gap-x-1 mb-0.5">
-                    <div className="flex flex-col items-center"><span className="text-[9px] font-bold text-white leading-none">{safeStats.pts}</span><span className="text-[5px] text-slate-500 font-black uppercase">PTS</span></div>
-                    <div className="flex flex-col items-center"><span className="text-[9px] font-bold text-white leading-none">{safeStats.reb}</span><span className="text-[5px] text-slate-500 font-black uppercase">REB</span></div>
-                    <div className="flex flex-col items-center"><span className="text-[9px] font-bold text-white leading-none">{safeStats.ast}</span><span className="text-[5px] text-slate-500 font-black uppercase">AST</span></div>
-                </div>
-
-                {/* FP SCORE */}
+                {/* We removed the desktop stats to ensure the Score has full room */}
                 <div className="flex items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full">
-                    <span className="text-[9px] text-slate-400 font-black uppercase mr-2 tracking-widest">
+                    
+                    {/* LABEL: Bright Yellow/Slate */}
+                    <span className={`text-[10px] font-black uppercase mr-2 tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>
                         {isResultPhase ? 'FP' : 'PROJ'}
                     </span>
-                    <span className={`text-base md:text-xl font-mono font-black tracking-tighter ${
+                    
+                    {/* NUMBER: Bright White or Color Coded */}
+                    <span className={`text-lg md:text-xl font-mono font-black tracking-tighter ${
                         isResultPhase 
                             ? (isWin ? 'text-green-400' : 'text-red-400') 
                             : 'text-white' 
@@ -132,10 +114,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
             </div>
 
         </div>
-
-        {/* BACK */}
         <CardBack />
-
       </div>
     </div>
   );
