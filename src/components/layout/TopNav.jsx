@@ -1,108 +1,66 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useBankroll } from '../../context/BankrollContext';
+import BankrollDisplay from '../game/BankrollDisplay';
 
 export default function TopNav() {
+  const { bankroll } = useBankroll();
   const location = useLocation();
-  const { bankroll, xp, history, claimedRewards } = useBankroll();
 
-  const isActive = (path) => location.pathname === path;
-
-  // --- RED DOT LOGIC ---
-  const notificationCount = useMemo(() => {
-    const safeHistory = history || [];
-    const safeClaimed = claimedRewards || [];
-    let count = 0;
-
-    const gamesPlayed = safeHistory.length;
-    const wins = safeHistory.filter(h => h.result === 'WIN').length;
-
-    // We replicate the simple checks here.
-    // Ideally this logic lives in a shared helper, but for now we keep it localized to avoid file sprawl.
-    const checkTask = (id, current, target) => {
-      if (current >= target && !safeClaimed.includes(id)) count++;
-    };
-
-    // Chain: Play
-    checkTask('d_play_3', gamesPlayed, 3);
-    checkTask('d_play_6', gamesPlayed, 6);
-    checkTask('d_play_10', gamesPlayed, 10);
-    
-    // Chain: Win
-    checkTask('d_win_1', wins, 1);
-    checkTask('d_win_3', wins, 3);
-    checkTask('d_win_5', wins, 5);
-
-    // Daily Spin (If not guest, and not claimed)
-    // Note: Checking VIP level would require importing VIP_TIERS, simplified here to just xp > 0
-    if (xp >= 100 && !safeClaimed.includes('daily_slot')) count++;
-
-    return count;
-  }, [history, claimedRewards, xp]);
+  // 1. Updated Tab List (Centering handled by CSS below)
+  const navItems = [
+    { name: 'HOME', path: '/' },
+    { name: 'PLAY', path: '/play' },
+    { name: 'PULSE', path: '/pulse' },
+    { name: 'COLLECT', path: '/collect' }
+  ];
 
   return (
-    <div className="fixed top-0 left-0 w-full h-16 z-[9999] bg-slate-950/90 backdrop-blur-md border-b border-white/5 shadow-2xl">
-      <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between relative">
-        
-        {/* LEFT: LOGO */}
-        <Link to="/" className="flex items-center gap-2 group z-50 hover:opacity-80 transition-opacity cursor-pointer">
-          <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center text-lg shadow-lg group-hover:scale-105 transition-transform">
-            🐶
-          </div>
-          <span className="text-lg font-black italic tracking-tighter text-white hidden sm:block">
-            REPLAY
-          </span>
+    <nav className="shrink-0 h-16 bg-slate-950 border-b border-white/10 flex items-center justify-between px-4 relative z-50">
+      
+      {/* LEFT: LOGO (Big & Clickable) */}
+      <div className="flex items-center">
+        <Link to="/" className="hover:opacity-80 transition-opacity">
+           <img src="/assets/Beta-logo.png" alt="NBA Replay Beta" className="h-12 w-auto object-contain" />
         </Link>
-
-        {/* CENTER: NAVIGATION PILL */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full flex justify-center pointer-events-none">
-          <nav className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 backdrop-blur-sm shadow-inner pointer-events-auto">
-            
-            <Link to="/play" className={`px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isActive('/play') ? 'bg-slate-800 text-white shadow-lg border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}>
-              <span className="text-sm">🎮</span>
-              <span className="text-[10px] font-black uppercase tracking-wider hidden sm:block">Play</span>
-            </Link>
-
-            <Link to="/pulse" className={`px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isActive('/pulse') ? 'bg-slate-800 text-white shadow-lg border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}>
-              <span className="text-sm">⚡</span>
-              <span className="text-[10px] font-black uppercase tracking-wider hidden sm:block">Pulse</span>
-            </Link>
-
-            <Link to="/collect" className={`relative px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isActive('/collect') ? 'bg-slate-800 text-white shadow-lg border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}>
-              <span className="text-sm">💎</span>
-              <span className="text-[10px] font-black uppercase tracking-wider hidden sm:block">Collect</span>
-              {/* NOTIFICATION DOT */}
-              {notificationCount > 0 && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-black animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
-              )}
-            </Link>
-
-            <Link to="/sync" className={`px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isActive('/sync') ? 'bg-slate-800 text-white shadow-lg border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}>
-              <span className="text-sm">🔗</span>
-              <span className="text-[10px] font-black uppercase tracking-wider hidden sm:block">Sync</span>
-            </Link>
-
-          </nav>
-        </div>
-
-        {/* RIGHT: BANKROLL & XP */}
-        <div className="flex items-center gap-3 z-50">
-          <div className="flex flex-col items-end leading-none">
-            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">BANKROLL</span>
-            <span className="text-sm font-mono font-bold text-green-400 drop-shadow-[0_0_5px_rgba(74,222,128,0.5)]">
-              ${bankroll.toLocaleString()}
-            </span>
-          </div>
-
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-xs font-black text-white shadow-lg border border-white/10 relative group cursor-default">
-            {Math.floor(xp / 1000) + 1}
-            <div className="absolute top-10 right-0 bg-black/90 text-[10px] text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-slate-700 pointer-events-none">
-              {xp.toLocaleString()} XP
-            </div>
-          </div>
-        </div>
-
       </div>
-    </div>
+
+      {/* CENTER: NAVIGATION TABS (Absolutely Centered) */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex items-center gap-2">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.name}
+              to={item.path}
+              className={`px-4 py-1.5 rounded text-[10px] font-black tracking-[0.2em] transition-all border ${
+                isActive 
+                  ? 'bg-white text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.4)]' 
+                  : 'text-slate-500 border-transparent hover:text-white hover:border-white/20'
+              }`}
+            >
+              {item.name}
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* RIGHT: VIP, BANKROLL, PROFILE */}
+      <div className="flex items-center gap-3">
+        {/* VIP Placeholder */}
+        <div className="hidden sm:flex items-center gap-1 bg-gradient-to-r from-purple-900 to-slate-900 px-2 py-1 rounded-full border border-purple-500/50">
+             <span className="text-[8px] text-purple-300 font-black uppercase">VIP</span>
+             <span className="text-xs text-white font-bold leading-none">1</span>
+        </div>
+
+        {/* Bankroll */}
+        <BankrollDisplay amount={bankroll} />
+
+        {/* Profile Icon Placeholder */}
+        <button className="w-9 h-9 bg-slate-800 rounded-full border border-slate-600 flex items-center justify-center text-xl hover:bg-slate-700 transition-colors relative overflow-hidden group">
+             <span className="group-hover:scale-110 transition-transform">👤</span>
+        </button>
+      </div>
+    </nav>
   );
 }

@@ -77,12 +77,17 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
   // 2. DATA PREP
   const isProjected = !finalScore;
   const projectedScore = (parseFloat(player?.cost) || 0) * 10.0;
-  // Fallback to 0 if stats are missing to prevent crash
-  const displayStats = isProjected ? (player?.avg || {}) : (finalScore.stats || { pts:0, reb:0, ast:0, stl:0, blk:0, to:0 });
+  
+  // STATS DISPLAY: REAL DATA ONLY
+  // If projected, grab `avg_stats` from DB. If that's missing, show '-'.
+  // Do NOT make up numbers.
+  const displayStats = isProjected 
+      ? (player?.avg_stats || { pts:'-', reb:'-', ast:'-', stl:'-', blk:'-', to:'-' })
+      : (finalScore.stats || { pts:0, reb:0, ast:0, stl:0, blk:0, to:0 });
+      
   const badges = finalScore?.badges || []; 
   const bonus = finalScore?.bonus || 0;
   
-  // HIGH RES IMAGE URL
   const headshotUrl = `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/1040x760/${player?.id}.png`;
 
   // 3. DATE & OPPONENT FORMATTING
@@ -91,21 +96,16 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
       const str = String(ds); 
       const parts = str.split('-');
       if (parts.length < 3) return str; 
-      
       const [y, m, d] = parts;
       const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const monthIndex = parseInt(m) - 1;
-      
       if (monthIndex < 0 || monthIndex > 11) return str; 
-      
       return `${y}, ${months[monthIndex]} ${d}`;
   };
 
-  // Mock Date if missing (since DB might not provide it yet)
   const dateStr = formatDate(finalScore?.date || '2024-02-03');
   const rawOpp = finalScore?.opp || 'Opponent';
   const oppAbbr = getAbbr(rawOpp);
-  
   const oppDisplay = oppAbbr ? ` - ${oppAbbr}` : '';
   const fullDateDisplay = isProjected ? 'SEASON AVG' : `${dateStr}${oppDisplay}`;
 
@@ -151,8 +151,9 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                 <div className="absolute bottom-0 w-full text-center z-20 bg-gradient-to-t from-black via-black/90 to-transparent pt-8 pb-1">
                     <h3 className="text-[9px] font-black text-white uppercase tracking-wider line-clamp-1 px-1 drop-shadow-md">{player.name}</h3>
                 </div>
+                {/* COST BADGE (BLACK) */}
                 <div className="absolute top-1 right-1 z-30">
-                    <div className={`text-[9px] font-black ${tier.text} bg-blue-600 px-1.5 py-0.5 rounded border border-white/10 shadow-lg`}>
+                    <div className={`text-[9px] font-black ${tier.text} bg-black/80 px-1.5 py-0.5 rounded border border-white/10 shadow-lg`}>
                         ${player.cost.toFixed(2)}
                     </div>
                 </div>
@@ -182,7 +183,7 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                      </span>
                  </div>
 
-                 {/* 6 STAT GRID */}
+                 {/* 6 STAT GRID (REAL DATA ONLY) */}
                  <div className="grid grid-cols-3 gap-0.5 bg-slate-900/30 rounded-sm py-0.5">
                     <StatItem label="PTS" value={displayStats.pts} />
                     <StatItem label="REB" value={displayStats.reb} />
@@ -193,12 +194,13 @@ export default function LiveCard({ player, isHeld, onToggle, finalScore, isFaceD
                     <StatItem label="BLK" value={displayStats.blk} />
                     <StatItem label="TO" value={displayStats.to} />
                  </div>
+                 
                  <div className="bg-slate-800 rounded mx-0.5 py-1 mt-0.5 text-center border border-slate-700 flex items-center justify-center gap-2">
                     <span className="text-[7px] text-slate-400 font-bold uppercase">
                         {isProjected ? 'PROJ FP' : 'FP'}
                     </span>
                     <span className={`text-lg font-mono leading-none ${isProjected ? 'text-white' : fpColorClass}`}>
-                        {isProjected ? projectedScore.toFixed(1) : (
+                        {isProjected ? player.avg : (
                             <>
                                 <CardScoreRoller value={finalScore.score} />
                                 {bonus > 0 && <span className="text-[8px] text-yellow-400 ml-0.5">({bonus})</span>}

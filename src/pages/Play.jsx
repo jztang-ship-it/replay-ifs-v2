@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import { useBankroll } from '../context/BankrollContext';
 import LiveCard from '../components/game/LiveCard'; 
@@ -7,10 +7,26 @@ import JackpotBar from '../components/game/JackpotBar';
 import PayoutInfo from '../components/game/PayoutInfo'; 
 import { getAllPlayers, getPlayerGameLog } from '../data/real_nba_db';
 
+// --- HELPER: TEAM SCORE ROLLER ---
 const TeamScoreRoller = ({ value }) => {
   const [display, setDisplay] = useState(0);
-  useEffect(() => { setDisplay(value); }, [value]);
-  return <span>{display.toLocaleString()}</span>;
+  useEffect(() => {
+    let start = display;
+    const end = value;
+    if (start === end) return;
+    const duration = 600; 
+    let startTime;
+    const animate = (time) => {
+      if (!startTime) startTime = time;
+      const progress = Math.min((time - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setDisplay(start + (end - start) * ease);
+      if (progress < 1) requestAnimationFrame(animate);
+      else setDisplay(end);
+    };
+    requestAnimationFrame(animate);
+  }, [value]);
+  return <span>{display.toFixed(1)}</span>;
 };
 
 const WinText = ({ label, color }) => (
@@ -35,65 +51,41 @@ export default function Play() {
 
   const SALARY_CAP = 15.0;
   
-  // LEGEND
   const badgeList = [
     { label: "FIRE", emoji: "🔥" }, { label: "TRIP", emoji: "👑" }, { label: "DBL", emoji: "✌️" },
     { label: "5x5", emoji: "🖐️" }, { label: "QUAD", emoji: "🦕" }, { label: "LOCK", emoji: "🔒" }
   ];
 
-  // --- ROBUST HAND BUILDER ---
+  // --- HAND BUILDER ---
   const buildSmartHand = (lockedCards = []) => {
     const allPlayers = getAllPlayers();
-    
-    // Helper to try filling a hand with a specific min_target
     const tryFill = (minTarget) => {
         for (let attempt = 0; attempt < 10; attempt++) {
             let currentHand = [...lockedCards];
             let currentTotal = lockedCards.reduce((sum, p) => sum + (p ? p.cost : 0), 0);
             let success = true;
-
             for (let i = 0; i < 5; i++) {
                 if (currentHand[i]) continue; 
-
                 let budgetRemaining = SALARY_CAP - currentTotal;
                 let slotsRemaining = 5 - i - 1; 
                 let maxSpend = budgetRemaining - (slotsRemaining * 0.5);
-                
-                // Get valid candidates
-                let candidates = allPlayers.filter(p => 
-                    p.cost <= maxSpend && 
-                    !currentHand.some(h => h && h.id === p.id)
-                );
-                
+                let candidates = allPlayers.filter(p => p.cost <= maxSpend && !currentHand.some(h => h && h.id === p.id));
                 if (candidates.length === 0) { success = false; break; }
-
-                // Sort expensive first to hit budget
                 candidates.sort((a, b) => b.cost - a.cost);
-                
-                // Pick top 40%
                 let topCandidates = candidates.slice(0, Math.max(1, Math.floor(candidates.length * 0.4)));
                 let pick = topCandidates[Math.floor(Math.random() * topCandidates.length)];
-
                 currentHand[i] = pick;
                 currentTotal += pick.cost;
             }
-
-            if (success && currentTotal >= minTarget && currentTotal <= SALARY_CAP) {
-                return currentHand;
-            }
+            if (success && currentTotal >= minTarget && currentTotal <= SALARY_CAP) return currentHand;
         }
-        return null; // Failed this target level
+        return null;
     };
-
-    // 1. Try for GOLD STANDARD ($14.50+)
     let result = tryFill(14.5);
     if (result) return result;
-
-    // 2. Try for ACCEPTABLE ($13.00+) - Fallback so game doesn't crash
     result = tryFill(13.0);
     if (result) return result;
-
-    // 3. LAST RESORT: Just fill it with whatever works
+    
     let panicHand = [...lockedCards];
     for(let i=0; i<5; i++) {
         if(!panicHand[i]) {
@@ -106,38 +98,19 @@ export default function Play() {
   };
 
   const handleDeal = () => {
-    // 1. Validate Funds
     const totalBet = 10 * betMultiplier;
-    if (bankroll < totalBet) { 
-        alert("Insufficient Funds"); 
-        return; 
-    }
-
-    // 2. Deduct & Reset
+    if (bankroll < totalBet) { alert("Insufficient Funds"); return; }
     updateBankroll(-totalBet);
     setJackpotContribution(totalBet * 0.05); 
     setTimeout(() => setJackpotContribution(0), 100);
+    setPayoutResult(null); setShowEffects(false); setRunningScore(0); setResults({}); setHeldIndices([]);
     
-    setPayoutResult(null); 
-    setShowEffects(false); 
-    setRunningScore(0); 
-    setResults({}); 
-    setHeldIndices([]);
-
-    // 3. Build Hand
     const handResult = buildSmartHand([undefined, undefined, undefined, undefined, undefined]);
-    
-    // Safety Check: Ensure we actually got a hand
     if (!handResult || handResult.some(c => !c)) {
-        console.error("CRITICAL: Failed to build hand", handResult);
-        // Emergency fallback to prevent "Nothing Happened"
-        const all = getAllPlayers();
-        setHand(all.slice(0, 5)); 
+        setHand(getAllPlayers().slice(0, 5)); 
     } else {
         setHand(handResult);
     }
-
-    // 4. Start Animation
     setGamePhase('DEALING');
     setSequencerIndex(0);
   };
@@ -159,39 +132,44 @@ export default function Play() {
        newResults[key] = getPlayerGameLog(player);
     });
     setResults(newResults);
-    setRunningScore(0);
+    setRunningScore(0); 
     setGamePhase('REVEALING');
     setSequencerIndex(0);
   };
 
+  // --- SEQUENCER ---
   useEffect(() => {
     let t;
     if (gamePhase === 'DEALING') {
        if (sequencerIndex < 5) t = setTimeout(() => setSequencerIndex(p => p+1), 100);
        else t = setTimeout(() => setGamePhase('DEALT'), 200);
     }
+    
     if (gamePhase === 'REVEALING') {
        if (sequencerIndex < 5) {
           const key = `${hand[sequencerIndex].id}-${sequencerIndex}`;
-          if (results[key]) setRunningScore(p => p + results[key].score);
-          t = setTimeout(() => setSequencerIndex(p => p+1), 800);
+          if (results[key]) {
+            setTimeout(() => {
+                setRunningScore(prev => prev + results[key].score);
+            }, 600);
+          }
+          t = setTimeout(() => setSequencerIndex(p => p+1), 1200);
        } else { 
           t = setTimeout(() => { 
              const finalTotal = Object.values(results).reduce((a, b) => a + b.score, 0);
+             setRunningScore(finalTotal);
              const topScore = Math.max(...Object.values(results).map(r => r.score));
-
              let mult = 0; let lbl = "LOSS"; let clr = "text-slate-500";
              if (finalTotal >= 280) { mult=100; lbl="JACKPOT"; clr="text-yellow-400"; }
              else if (finalTotal >= 250) { mult=15; lbl="LEGENDARY"; clr="text-purple-400"; }
              else if (finalTotal >= 220) { mult=5; lbl="BIG WIN"; clr="text-green-400"; }
              else if (finalTotal >= 190) { mult=2; lbl="WINNER"; clr="text-blue-400"; }
-             
              if (mult > 0) { updateBankroll(Math.floor(10 * betMultiplier * mult)); setShowEffects(true); }
              setPayoutResult({label:lbl, color:clr});
              const totalBadges = Object.values(results).reduce((acc, r) => acc + (r.badges ? r.badges.length : 0), 0);
              recordGame(mult > 0, totalBadges, finalTotal, topScore);
              setGamePhase('END'); 
-          }, 500); 
+          }, 800); 
        }
     }
     return () => clearTimeout(t);
@@ -201,8 +179,8 @@ export default function Play() {
   const toggleHold = (i) => { if (gamePhase === 'DEALT') setHeldIndices(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]); };
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
   const isFaceDown = (i) => (gamePhase === 'START') || (gamePhase === 'DEALING' && i > sequencerIndex) || (gamePhase === 'DRAWING' && !heldIndices.includes(i)) || (gamePhase === 'REVEALING' && i > sequencerIndex && !heldIndices.includes(i));
-  const usedSalary = hand.reduce((acc, p) => acc + (p ? p.cost : 0), 0);
-  const remainingCap = SALARY_CAP - usedSalary;
+  const heldCost = heldIndices.reduce((acc, idx) => acc + (hand[idx] ? hand[idx].cost : 0), 0);
+  const remainingBudget = SALARY_CAP - heldCost;
   const betOpts = [1, 3, 5, 10, 20];
 
   return (
@@ -210,10 +188,25 @@ export default function Play() {
       {showEffects && payoutResult && <MoneyRain tierLabel={payoutResult.label} />}
       {showRules && <PayoutInfo onClose={() => setShowRules(false)} />}
       
-      <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-2 pb-80 relative z-10">
-        <div className="shrink-0 w-full flex justify-center mt-4 mb-4 relative z-30"><JackpotBar addAmount={jackpotContribution} /></div>
-        <div className="flex-1 flex flex-col items-center justify-start min-h-0 relative z-20">
-           <div className="w-full grid grid-cols-5 gap-2">
+      {/* LAYOUT FIX: 
+        1. h-[calc(100vh-64px)] ensures we take exactly the remaining screen space.
+        2. flex-col lets us stack the Jackpot Bar and the Cards.
+      */}
+      <div className="flex flex-col h-[calc(100vh-64px)] w-full max-w-7xl mx-auto px-2 relative z-10">
+        
+        {/* TOP: JACKPOT BAR (Fixed size, No Margin) */}
+        {/* Changed mt-4 to mt-0 to kill whitespace */}
+        <div className="shrink-0 w-full flex justify-center mt-0 pt-2 pb-2 relative z-30">
+          <JackpotBar addAmount={jackpotContribution} />
+        </div>
+        
+        {/* MIDDLE: CARD AREA (Scrollable) 
+          1. flex-1 allows it to fill all remaining space.
+          2. overflow-y-auto enables scrolling ONLY within this box.
+          3. pb-48 ensures the bottom of the cards is never hidden behind the fixed footer.
+        */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar pb-48 relative z-20">
+           <div className="w-full grid grid-cols-5 gap-2 px-1">
               {hand.length === 0 ? 
                  Array.from({length:5}).map((_,i) => <div key={i} className="aspect-[3/5]"><LiveCard isFaceDown={true}/></div>) 
               : 
@@ -221,8 +214,10 @@ export default function Play() {
               }
            </div>
         </div>
+
       </div>
 
+      {/* BOTTOM: FIXED FOOTER */}
       <div className="fixed bottom-0 left-0 w-full bg-slate-950 border-t border-slate-900 p-4 pb-8 z-50 shadow-2xl">
         <div className="max-w-xl mx-auto flex flex-col gap-3">
            
@@ -232,16 +227,16 @@ export default function Play() {
              <div className="flex flex-col leading-tight min-w-[80px] z-10">
                <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">BUDGET</span>
                <div className="flex items-baseline gap-1">
-                 <span className={`font-mono font-black text-lg ${usedSalary > 15 ? 'text-red-500' : 'text-white'}`}>${usedSalary.toFixed(1)}</span>
-                 <span className={`font-mono font-bold text-[10px] ${remainingCap < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                   ({remainingCap >= 0 ? '+' : ''}{Math.abs(remainingCap).toFixed(1)})
+                 <span className="font-mono font-black text-lg text-white">${SALARY_CAP.toFixed(1)}</span>
+                 <span className={`font-mono font-bold text-[10px] ${remainingBudget < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                   ({remainingBudget >= 0 ? '+' : ''}{remainingBudget.toFixed(1)})
                  </span>
                </div>
              </div>
 
              {/* CENTER: MESSAGES */}
              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                {gamePhase === 'DEALT' && <div className="bg-black/60 px-4 py-1 rounded-full border border-orange-500/30 animate-pulse"><span className="text-orange-400 text-[10px] font-black uppercase tracking-[0.2em]">Select & Draw</span></div>}
+                {gamePhase === 'DEALT' && <div className="bg-black/60 px-4 py-1 rounded-full border border-orange-500/30 animate-pulse"><span className="text-orange-400 text-[10px] font-black uppercase tracking-[0.2em]">Hold and Draw</span></div>}
                 {gamePhase === 'END' && payoutResult && <WinText label={payoutResult.label} color={payoutResult.color} />}
              </div>
 
@@ -254,7 +249,6 @@ export default function Play() {
                     </div>
                     <span className="text-2xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
                 </div>
-                {/* ICON LEGEND */}
                 <div className="grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
                     {badgeList.map((b, i) => (
                         <div key={i} className="flex items-center gap-0.5" title={b.label}>
@@ -275,7 +269,7 @@ export default function Play() {
            {/* BUTTONS */}
            <div className="flex gap-2">
                <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleReplay:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`py-4 text-white font-black rounded-xl shadow-lg transition-all text-sm tracking-[0.2em] uppercase flex-1 ${gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'?'bg-slate-800 text-slate-500':(gamePhase==='END'?'bg-green-600 hover:brightness-110':'bg-blue-600 hover:brightness-110')} active:scale-95`}>
-                 {gamePhase==='DEALT'?'DRAW CARDS':(gamePhase==='END'?'REPLAY':(gamePhase==='DEALING'?'DEALING...':'DEAL'))}
+                 {gamePhase==='DEALT'?'DRAW':(gamePhase==='END'?'REPLAY':(gamePhase==='DEALING'?'DEALING...':'DEAL'))}
                </button>
            </div>
         </div>
