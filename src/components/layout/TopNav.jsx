@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useBankroll } from '../../context/BankrollContext';
+// 1. IMPORT THE LOGO
 import logo from '../../assets/logo.png'; 
 
 const ProfileIcon = () => (
@@ -20,6 +21,7 @@ export default function TopNav() {
       <div className="flex-1 flex justify-start">
         <Link to="/" className="flex items-center group">
             <div className="h-16 w-16 relative transition-transform group-hover:scale-105">
+                {/* 2. USE THE IMPORTED LOGO */}
                 <img src={logo} alt="Replay Logo" className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_2px_10px_rgba(255,255,255,0.15)]" />
             </div>
         </Link>
