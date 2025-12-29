@@ -1,42 +1,29 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { BankrollProvider } from './context/BankrollContext';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// Page Components
 import HomePage from './pages/HomePage';
-import Play from './pages/Play';
-import Pulse from './pages/Pulse';
-import Collect from './pages/Collect';
-import Profile from './pages/Profile';
 import LoginPage from './pages/LoginPage';
-import GameRoom from './pages/GameRoom';
-import Sync from './pages/Sync';
+import Profile from './pages/Profile';
+import PulsePage from './pages/Pulse';       
+import CollectPage from './pages/Collect';   
+
+// 1. IMPORT THE REAL GAME PAGE (Note: Your file is named Play.jsx)
+import PlayPage from './pages/Play'; 
 
 export default function App() {
   return (
-    // 1. Wrap the entire app in BankrollProvider so balance updates work globally
-    <BankrollProvider>
-      {/* 2. Router handles navigation between pages */}
-      <Router>
-        <Routes>
-          {/* Main Navigation Routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/play" element={<Play />} />
-          <Route path="/pulse" element={<Pulse />} />
-          <Route path="/collect" element={<Collect />} />
-          
-          {/* New Profile Page */}
-          <Route path="/profile" element={<Profile />} />
-          
-          {/* Utility / Other Routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/gameroom" element={<GameRoom />} />
-          <Route path="/sync" element={<Sync />} />
-          
-          {/* Fallback for unknown routes (optional, redirects to Home) */}
-          <Route path="*" element={<HomePage />} />
-        </Routes>
-      </Router>
-    </BankrollProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/profile" element={<Profile />} />
+        
+        {/* 2. POINT THE ROUTE TO THE GAME */}
+        <Route path="/play" element={<PlayPage />} /> 
+        
+        <Route path="/pulse" element={<PulsePage />} />
+        <Route path="/collect" element={<CollectPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

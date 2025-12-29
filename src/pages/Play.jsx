@@ -6,7 +6,6 @@ import JackpotBar from '../components/game/JackpotBar';
 import { getAllPlayers, getPlayerGameLog } from '../data/real_nba_db';
 
 // --- HELPER: SAFE COST ---
-// Ensures we always get a number, even if data is messy
 const getCost = (p) => {
     if (!p) return 0;
     const val = p.cost || p.price || 0;
@@ -62,15 +61,10 @@ export default function Play() {
     { label: "5x5", emoji: "🖐️" }, { label: "QUAD", emoji: "🦕" }, { label: "LOCK", emoji: "🔒" }
   ];
 
-  // --- HAND BUILDER (FIXED) ---
   const buildSmartHand = (lockedCards = []) => {
     const allPlayers = getAllPlayers();
-    
-    // Sort cheap to expensive for safe fallbacks
     const sortedPlayers = [...allPlayers].sort((a, b) => getCost(a) - getCost(b));
     const minCost = getCost(sortedPlayers[0]) || 0.5;
-
-    // Helper: Sum cost of current hand
     const getCurrentTotal = (h) => h.reduce((sum, p) => sum + getCost(p), 0);
 
     const tryFill = (minTarget) => {
@@ -80,59 +74,39 @@ export default function Play() {
             let success = true;
 
             for (let i = 0; i < 5; i++) {
-                if (currentHand[i]) continue; // Skip locked cards
-
+                if (currentHand[i]) continue;
                 let slotsRemaining = 5 - i - 1;
                 let budgetRemaining = SALARY_CAP - currentTotal;
-                
-                // CRITICAL FIX: Reserve budget for remaining slots
                 let maxSpend = budgetRemaining - (slotsRemaining * minCost);
-
-                // Candidates that fit budget and aren't already in hand
                 let candidates = allPlayers.filter(p => 
                     getCost(p) <= maxSpend && 
                     !currentHand.some(h => h && h.id === p.id)
                 );
-
                 if (candidates.length === 0) { success = false; break; }
-
-                // Weighted random: Prefer higher cost to reach minTarget
                 candidates.sort((a, b) => getCost(b) - getCost(a));
                 let topCandidates = candidates.slice(0, Math.max(1, Math.floor(candidates.length * 0.5)));
                 let pick = topCandidates[Math.floor(Math.random() * topCandidates.length)];
-
                 currentHand[i] = pick;
                 currentTotal += getCost(pick);
             }
-
             if (success && currentTotal <= SALARY_CAP) {
-                // If minTarget is provided, ensure we met it. Otherwise any valid hand works.
                 if (!minTarget || currentTotal >= minTarget) return currentHand;
             }
         }
         return null;
     };
 
-    // Strategy 1: Try to get a high value hand (Near Cap)
     let result = tryFill(13.5);
     if (result) return result;
-
-    // Strategy 2: Try to get a medium value hand
     result = tryFill(10.0);
     if (result) return result;
-    
-    // Strategy 3: Try ANY valid hand
     result = tryFill(0);
     if (result) return result;
 
-    // Strategy 4: Panic Mode (The Safety Net)
-    // If all else fails, fill remaining slots with the CHEAPEST players.
-    // This prevents the $19.4 bust.
     let panicHand = [...lockedCards];
     for(let i=0; i<5; i++) {
         if(!panicHand[i]) {
             let usedIds = panicHand.map(p => p?.id);
-            // Find cheapest player not in hand
             let cheapest = sortedPlayers.find(p => !usedIds.includes(p.id));
             panicHand[i] = cheapest || sortedPlayers[0];
         }
@@ -147,11 +121,8 @@ export default function Play() {
     setJackpotContribution(totalBet * 0.05); 
     setTimeout(() => setJackpotContribution(0), 100);
     setPayoutResult(null); setShowEffects(false); setRunningScore(0); setResults({}); setHeldIndices([]);
-    
-    // Pass 5 undefineds to start fresh
     const handResult = buildSmartHand([undefined, undefined, undefined, undefined, undefined]);
     setHand(handResult);
-    
     setGamePhase('DEALING');
     setSequencerIndex(0);
   };
@@ -219,10 +190,8 @@ export default function Play() {
   const getRes = (i) => (gamePhase === 'END' || (gamePhase === 'REVEALING' && i <= sequencerIndex)) ? results[`${hand[i]?.id}-${i}`] : null;
   const isFaceDown = (i) => (gamePhase === 'START') || (gamePhase === 'DEALING' && i > sequencerIndex) || (gamePhase === 'DRAWING' && !heldIndices.includes(i)) || (gamePhase === 'REVEALING' && i > sequencerIndex && !heldIndices.includes(i));
   
-  // Recalculate cost for display (using Safe Cost)
   const totalHandCost = hand.reduce((acc, p) => acc + getCost(p), 0);
   const heldCost = heldIndices.reduce((acc, idx) => acc + getCost(hand[idx]), 0);
-
   let displayRemaining = SALARY_CAP;
   if (gamePhase === 'DEALT') {
       displayRemaining = SALARY_CAP - heldCost;
@@ -235,15 +204,10 @@ export default function Play() {
   return (
     <PageContainer>
       <div className="flex flex-col h-full w-full max-w-7xl mx-auto relative z-10">
-        
         <div className="shrink-0 w-full flex justify-center py-2 relative z-30">
           <JackpotBar addAmount={jackpotContribution} />
         </div>
-        
-        {/* SCROLL AREA */}
         <div className="flex-1 flex flex-col items-center justify-start md:justify-center relative z-20 min-h-0 w-full overflow-y-auto custom-scrollbar pt-2">
-           
-           {/* DIAMOND LAYOUT */}
            <div className="w-full h-auto md:h-full md:max-h-[65vh] flex flex-wrap justify-center gap-2 px-2 md:grid md:grid-cols-5 md:gap-3 md:px-3 pb-20 md:pb-2">
               {hand.length === 0 ? 
                  Array.from({length:5}).map((_,i) => (
@@ -260,11 +224,8 @@ export default function Play() {
               }
            </div>
         </div>
-
-        {/* FOOTER */}
         <div className="shrink-0 w-full bg-slate-950 border-t border-slate-900 p-3 md:p-4 pb-6 md:pb-8 z-50 shadow-[0_-5px_25px_rgba(0,0,0,0.5)]">
             <div className="max-w-xl mx-auto flex flex-col gap-3">
-            
             <div className="flex items-center justify-between h-14 md:h-16 bg-slate-900 rounded-xl border border-slate-800 px-3 relative overflow-hidden">
                 <div className="flex flex-col leading-tight min-w-[70px] md:min-w-[80px] z-10">
                     <span className="text-[8px] md:text-[9px] text-slate-500 font-black uppercase tracking-widest">BUDGET</span>
@@ -275,12 +236,10 @@ export default function Play() {
                         </span>
                     </div>
                 </div>
-
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
                     {gamePhase === 'DEALT' && <div className="bg-black/60 px-3 md:px-4 py-1 rounded-full border border-orange-500/30 animate-pulse"><span className="text-orange-400 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em]">Hold and Draw</span></div>}
                     {gamePhase === 'END' && payoutResult && <WinText label={payoutResult.label} color={payoutResult.color} />}
                 </div>
-
                 <div className="flex items-center gap-2 md:gap-3 z-10">
                     <div className="flex flex-col items-end leading-none">
                         <div className="flex items-center gap-1 mb-1">
@@ -289,7 +248,6 @@ export default function Play() {
                         </div>
                         <span className="text-xl md:text-2xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
                     </div>
-                    {/* Badge List Hidden on mobile */}
                     <div className="hidden md:grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
                         {badgeList.map((b, i) => (
                             <div key={i} className="flex items-center gap-0.5" title={b.label}>
@@ -300,12 +258,10 @@ export default function Play() {
                     </div>
                 </div>
             </div>
-
             <div className="flex justify-between items-center px-1">
                 <div className="flex gap-1.5">{betOpts.map(m => (<button key={m} onClick={() => setBetMultiplier(m)} disabled={gamePhase !== 'START' && gamePhase !== 'END' && gamePhase !== 'DEALT'} className={`px-2 md:px-3 py-1.5 rounded-md text-[9px] md:text-[10px] font-bold transition-all ${betMultiplier === m ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{m===20?'MAX':`${m}x`}</button>))}</div>
                 <div className="text-right"><span className="text-[8px] md:text-[9px] text-slate-500 uppercase font-bold block">Total Bet</span><span className="text-white font-mono font-bold text-xs md:text-sm">${10 * betMultiplier}</span></div>
             </div>
-            
             <div className="flex gap-2">
                 <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleReplay:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`py-3 md:py-4 text-white font-black rounded-xl shadow-lg transition-all text-xs md:text-sm tracking-[0.2em] uppercase flex-1 ${gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'?'bg-slate-800 text-slate-500':(gamePhase==='END'?'bg-green-600 hover:brightness-110':'bg-blue-600 hover:brightness-110')} active:scale-95`}>
                     {gamePhase==='DEALT'?'DRAW':(gamePhase==='END'?'REPLAY':(gamePhase==='DEALING'?'DEALING...':'DEAL'))}
@@ -313,7 +269,6 @@ export default function Play() {
             </div>
             </div>
         </div>
-
       </div>
     </PageContainer>
   );
