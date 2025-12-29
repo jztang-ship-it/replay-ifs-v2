@@ -54,6 +54,7 @@ export default function Play() {
   const [runningScore, setRunningScore] = useState(0);
   const [jackpotContribution, setJackpotContribution] = useState(0);
 
+  // STRICT RULE: $15.0 CAP
   const SALARY_CAP = 15.0;
    
   const badgeList = [
@@ -170,10 +171,13 @@ export default function Play() {
              setRunningScore(finalTotal);
              const topScore = Math.max(...Object.values(results).map(r => r.score));
              let mult = 0; let lbl = "LOSS"; let clr = "text-slate-500";
+             
+             // --- EXISTING THRESHOLDS (To be tuned after Sim) ---
              if (finalTotal >= 280) { mult=100; lbl="JACKPOT"; clr="text-yellow-400"; }
              else if (finalTotal >= 250) { mult=15; lbl="LEGENDARY"; clr="text-purple-400"; }
              else if (finalTotal >= 220) { mult=5; lbl="BIG WIN"; clr="text-green-400"; }
              else if (finalTotal >= 190) { mult=2; lbl="WINNER"; clr="text-blue-400"; }
+             
              if (mult > 0) { updateBankroll(Math.floor(10 * betMultiplier * mult)); setShowEffects(true); }
              setPayoutResult({label:lbl, color:clr});
              const totalBadges = Object.values(results).reduce((acc, r) => acc + (r.badges ? r.badges.length : 0), 0);
@@ -248,7 +252,9 @@ export default function Play() {
                         </div>
                         <span className="text-xl md:text-2xl font-mono font-black text-white"><TeamScoreRoller value={runningScore} /></span>
                     </div>
-                    <div className="hidden md:grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5">
+                    
+                    {/* --- MOBILE FIX IS HERE --- */}
+                    <div className="grid grid-cols-3 gap-x-1.5 gap-y-0.5 bg-black/30 p-1 rounded border border-white/5 scale-90 md:scale-100 origin-right">
                         {badgeList.map((b, i) => (
                             <div key={i} className="flex items-center gap-0.5" title={b.label}>
                                 <span className="text-[10px]">{b.emoji}</span>
@@ -256,6 +262,7 @@ export default function Play() {
                             </div>
                         ))}
                     </div>
+
                 </div>
             </div>
             <div className="flex justify-between items-center px-1">

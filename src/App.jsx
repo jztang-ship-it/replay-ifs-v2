@@ -6,9 +6,9 @@ import LoginPage from './pages/LoginPage';
 import Profile from './pages/Profile';
 import PulsePage from './pages/Pulse';       
 import CollectPage from './pages/Collect';   
-
-// 1. IMPORT THE REAL GAME PAGE (Note: Your file is named Play.jsx)
 import PlayPage from './pages/Play'; 
+// IMPORT SIM
+import Simulate from './pages/Simulate';
 
 export default function App() {
   return (
@@ -17,12 +17,12 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/profile" element={<Profile />} />
-        
-        {/* 2. POINT THE ROUTE TO THE GAME */}
         <Route path="/play" element={<PlayPage />} /> 
-        
         <Route path="/pulse" element={<PulsePage />} />
         <Route path="/collect" element={<CollectPage />} />
+        
+        {/* ADD SIM ROUTE */}
+        <Route path="/simulate" element={<Simulate />} />
       </Routes>
     </BrowserRouter>
   );
