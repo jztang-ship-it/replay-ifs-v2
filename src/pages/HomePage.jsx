@@ -1,26 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import PageContainer from '../components/layout/PageContainer';
-// 1. This imports the image securely.
-// Ensure your image is at: src/assets/logo.png
-import logo from '../assets/logo.png'; 
+// import logo from '../assets/logo.png'; // <--- COMMENTED OUT
 
 export default function HomePage() {
   return (
     <PageContainer>
       <div className="flex-1 flex items-center justify-center p-6 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] bg-repeat opacity-100">
-        
         <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl text-center relative overflow-hidden">
           
-          {/* 2. LOGO AREA */}
           <div className="flex justify-center mb-6">
-             <div className="w-24 h-24 relative">
-                {/* 3. USING THE IMPORTED LOGO VARIABLE */}
-                <img 
-                  src={logo} 
-                  alt="Replay Frenchie" 
-                  className="w-full h-full object-contain drop-shadow-2xl"
-                />
+             <div className="w-24 h-24 flex items-center justify-center bg-slate-800 rounded-full">
+                {/* TEMPORARY PLACEHOLDER */}
+                <span className="text-2xl">🐶</span>
              </div>
           </div>
 
