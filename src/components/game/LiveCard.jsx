@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-// import logo from '../../assets/logo.png'; // <--- COMMENTED OUT
+// 1. IMPORT RESTORED
+import logo from '../../assets/logo.png'; 
 
 const CardBack = () => (
     <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shadow-2xl backface-hidden rotate-y-180">
@@ -7,19 +8,19 @@ const CardBack = () => (
         <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-950 flex flex-col items-center justify-center relative gap-3 p-4">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent opacity-50"></div>
             
-            {/* TEMPORARY PLACEHOLDER */}
-            <div className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full border border-slate-700">
-                <span className="font-bold text-slate-500">IFS</span>
-            </div>
+            {/* 2. REAL LOGO RESTORED */}
+            <img src={logo} alt="Replay Logo" className="w-20 h-20 object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] relative z-10 opacity-90" />
             
-            <span className="text-xs md:text-sm font-black italic uppercase text-slate-500 drop-shadow-sm tracking-[0.2em] relative z-10 text-center leading-tight">
-                SPORTS IS SOCIAL
+            {/* 3. UPDATED TEXT CASE */}
+            <span className="text-xs md:text-sm font-black italic text-slate-500 drop-shadow-sm tracking-[0.2em] relative z-10 text-center leading-tight">
+                sports IS social
             </span>
         </div>
     </div>
 );
 
-// ... (KEEP THE REST OF THE LOGIC BELOW) ...
+// ... KEEP THE REST OF THE FILE EXACTLY AS IT IS BELOW ...
+
 const getTierStyle = (cost) => {
     const val = parseFloat(cost || 0);
     if (val >= 5.0) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400', grad: 'from-amber-900' };

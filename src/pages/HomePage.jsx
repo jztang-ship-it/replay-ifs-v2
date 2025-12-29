@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import PageContainer from '../components/layout/PageContainer';
-// import logo from '../assets/logo.png'; // <--- COMMENTED OUT
+// 1. IMPORT RESTORED
+import logo from '../assets/logo.png'; 
 
 export default function HomePage() {
   return (
@@ -10,9 +11,9 @@ export default function HomePage() {
         <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl text-center relative overflow-hidden">
           
           <div className="flex justify-center mb-6">
-             <div className="w-24 h-24 flex items-center justify-center bg-slate-800 rounded-full">
-                {/* TEMPORARY PLACEHOLDER */}
-                <span className="text-2xl">🐶</span>
+             <div className="w-24 h-24 relative">
+                {/* 2. REAL LOGO RESTORED */}
+                <img src={logo} alt="Replay Frenchie" className="w-full h-full object-contain drop-shadow-2xl" />
              </div>
           </div>
 

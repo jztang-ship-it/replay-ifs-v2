@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import PageContainer from '../components/layout/PageContainer';
-
+import logo from '../assets/logo.png';
 
 export default function LoginPage() {
   return (
