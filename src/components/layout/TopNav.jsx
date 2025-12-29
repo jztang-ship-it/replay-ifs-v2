@@ -20,7 +20,7 @@ export default function TopNav() {
   return (
     <header className="shrink-0 h-20 bg-slate-950 border-b border-slate-900 flex items-center justify-between px-2 md:px-4 relative z-50">
       
-      {/* LEFT: LOGO */}
+      {/* LEFT: LOGO (Clicking this goes Home) */}
       <div className="flex-1 flex justify-start">
         <Link to="/" className="flex items-center group">
             <div className="h-14 w-14 md:h-16 md:w-16 relative transition-transform group-hover:scale-105">
@@ -29,9 +29,8 @@ export default function TopNav() {
         </Link>
       </div>
 
-      {/* CENTER: TABS (NOW VISIBLE: 'flex' instead of 'hidden') */}
+      {/* CENTER: TABS (Removed "Home") */}
       <nav className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl absolute left-1/2 -translate-x-1/2 border border-slate-800 shadow-xl backdrop-blur-md">
-        <Link to="/" className={`px-2 md:px-4 py-1.5 rounded-lg text-[10px] md:text-sm font-black uppercase tracking-wider transition-all ${isActive('/')}`}>Home</Link>
         <Link to="/play" className={`px-2 md:px-4 py-1.5 rounded-lg text-[10px] md:text-sm font-black uppercase tracking-wider transition-all ${isActive('/play')}`}>Play</Link>
         <Link to="/pulse" className={`px-2 md:px-4 py-1.5 rounded-lg text-[10px] md:text-sm font-black uppercase tracking-wider transition-all ${isActive('/pulse')}`}>Pulse</Link>
         <Link to="/collect" className={`px-2 md:px-4 py-1.5 rounded-lg text-[10px] md:text-sm font-black uppercase tracking-wider transition-all ${isActive('/collect')}`}>Collect</Link>

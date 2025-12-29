@@ -1,6 +1,41 @@
-import React, { useState } from 'react';
-// 1. IMPORT RESTORED
+import React, { useState, useEffect, useRef } from 'react';
 import logo from '../../assets/logo.png'; 
+
+// --- HELPER: Score Roller ---
+const ScoreRoller = ({ value }) => {
+  const [display, setDisplay] = useState(() => parseFloat(value) || 0);
+  const targetRef = useRef(parseFloat(value) || 0);
+
+  useEffect(() => {
+    const end = parseFloat(value) || 0;
+    if (Math.abs(targetRef.current - end) < 0.1) {
+        targetRef.current = end;
+        setDisplay(end);
+        return;
+    }
+    const start = display;
+    targetRef.current = end;
+    const duration = 600; 
+    let startTime;
+    let animationFrame;
+
+    const animate = (time) => {
+      if (!startTime) startTime = time;
+      const progress = Math.min((time - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3); 
+      const current = start + (end - start) * ease;
+      setDisplay(current);
+
+      if (progress < 1) animationFrame = requestAnimationFrame(animate);
+      else setDisplay(end);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [value]);
+
+  return <>{display.toFixed(1)}</>;
+};
 
 const CardBack = () => (
     <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shadow-2xl backface-hidden rotate-y-180">
@@ -8,18 +43,24 @@ const CardBack = () => (
         <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-950 flex flex-col items-center justify-center relative gap-3 p-4">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent opacity-50"></div>
             
-            {/* 2. REAL LOGO RESTORED */}
+            {/* LOGO */}
             <img src={logo} alt="Replay Logo" className="w-20 h-20 object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] relative z-10 opacity-90" />
             
-            {/* 3. UPDATED TEXT CASE */}
-            <span className="text-xs md:text-sm font-black italic text-slate-500 drop-shadow-sm tracking-[0.2em] relative z-10 text-center leading-tight">
-                sports IS social
-            </span>
+            {/* UPDATED TEXT LAYOUT: Stacked 3 lines */}
+            <div className="flex flex-col items-center justify-center gap-0.5 relative z-10">
+                <span className="text-[10px] md:text-xs font-black italic text-slate-600 uppercase tracking-[0.2em] leading-none">
+                    sports
+                </span>
+                <span className="text-sm md:text-base font-black italic text-yellow-500 uppercase tracking-[0.2em] leading-none drop-shadow-md">
+                    IS
+                </span>
+                <span className="text-[10px] md:text-xs font-black italic text-slate-600 uppercase tracking-[0.2em] leading-none">
+                    social
+                </span>
+            </div>
         </div>
     </div>
 );
-
-// ... KEEP THE REST OF THE FILE EXACTLY AS IT IS BELOW ...
 
 const getTierStyle = (cost) => {
     const val = parseFloat(cost || 0);
@@ -77,7 +118,9 @@ export default function LiveCard(props) {
                 <div className="flex flex-col items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full overflow-hidden">
                     <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>{isResultPhase ? 'FP' : 'PROJ'}</span>
-                        <span className={`text-lg md:text-xl font-mono font-black tracking-tighter ${isResultPhase ? (isWin ? 'text-green-400' : 'text-red-400') : 'text-white'}`}>{displayScore.toFixed(1)}</span>
+                        <span className={`text-lg md:text-xl font-mono font-black tracking-tighter ${isResultPhase ? (isWin ? 'text-green-400' : 'text-red-400') : 'text-white'}`}>
+                            <ScoreRoller value={displayScore} />
+                        </span>
                     </div>
                 </div>
             </div>
