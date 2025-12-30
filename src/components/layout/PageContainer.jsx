@@ -1,19 +1,14 @@
 import React from 'react';
-import TopNav from './TopNav'; // Importing the correct file name now
+import TopNav from './TopNav';
 
 export default function PageContainer({ children }) {
   return (
-    // Flex column layout: TopNav at top, content fills the rest
-    <div className="flex flex-col h-screen w-full bg-slate-950 text-white overflow-hidden">
-      
-      {/* 1. The New Top Navigation */}
+    <div className="min-h-screen bg-slate-950 flex flex-col overflow-hidden text-slate-200 font-sans selection:bg-blue-500/30 selection:text-blue-100">
       <TopNav />
-
-      {/* 2. Main Content Area */}
-      <main className="flex-1 relative overflow-hidden flex flex-col">
+      {/* pt-16 ensures content starts BELOW the fixed header */}
+      <div className="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden relative pt-16 mt-2">
         {children}
-      </main>
-
+      </div>
     </div>
   );
 }

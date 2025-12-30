@@ -1,66 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import logo from '../../assets/logo.png'; 
+import { getAllPlayers } from '../../data/real_nba_db';
 
-// --- HELPER: Score Roller ---
+// --- INTERNAL HELPERS ---
 const ScoreRoller = ({ value }) => {
   const [display, setDisplay] = useState(() => parseFloat(value) || 0);
   const targetRef = useRef(parseFloat(value) || 0);
-
   useEffect(() => {
     const end = parseFloat(value) || 0;
-    if (Math.abs(targetRef.current - end) < 0.1) {
-        targetRef.current = end;
-        setDisplay(end);
-        return;
-    }
-    const start = display;
-    targetRef.current = end;
-    const duration = 600; 
-    let startTime;
-    let animationFrame;
-
-    const animate = (time) => {
-      if (!startTime) startTime = time;
-      const progress = Math.min((time - startTime) / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3); 
-      const current = start + (end - start) * ease;
-      setDisplay(current);
-
-      if (progress < 1) animationFrame = requestAnimationFrame(animate);
-      else setDisplay(end);
-    };
-
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
+    if (Math.abs(targetRef.current - end) < 0.1) { targetRef.current = end; setDisplay(end); return; }
+    const start = display; targetRef.current = end; const duration = 400; let startTime;
+    const animate = (time) => { if (!startTime) startTime = time; const progress = Math.min((time - startTime) / duration, 1); const ease = 1 - Math.pow(1 - progress, 3); const current = start + (end - start) * ease; setDisplay(current); if (progress < 1) requestAnimationFrame(animate); else setDisplay(end); };
+    requestAnimationFrame(animate);
   }, [value]);
-
   return <>{display.toFixed(1)}</>;
 };
 
-const CardBack = () => (
-    <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shadow-2xl backface-hidden rotate-y-180">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30 mix-blend-overlay"></div>
-        <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-950 flex flex-col items-center justify-center relative gap-3 p-4">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent opacity-50"></div>
-            
-            {/* LOGO */}
-            <img src={logo} alt="Replay Logo" className="w-20 h-20 object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] relative z-10 opacity-90" />
-            
-            {/* UPDATED TEXT LAYOUT: Stacked 3 lines */}
-            <div className="flex flex-col items-center justify-center gap-0.5 relative z-10">
-                <span className="text-[10px] md:text-xs font-black italic text-slate-600 uppercase tracking-[0.2em] leading-none">
-                    sports
-                </span>
-                <span className="text-sm md:text-base font-black italic text-yellow-500 uppercase tracking-[0.2em] leading-none drop-shadow-md">
-                    IS
-                </span>
-                <span className="text-[10px] md:text-xs font-black italic text-slate-600 uppercase tracking-[0.2em] leading-none">
-                    social
-                </span>
-            </div>
-        </div>
-    </div>
-);
+const formatGameDate = (dateString) => {
+    const date = new Date(dateString || Date.now());
+    const day = date.getDate();
+    const month = date.toLocaleString('default', { month: 'short' });
+    return `${day} ${month}`;
+};
 
 const getTierStyle = (cost) => {
     const val = parseFloat(cost || 0);
@@ -70,62 +31,117 @@ const getTierStyle = (cost) => {
     return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500', grad: 'from-slate-800' };
 };
 
+const getTrueProjection = (playerId) => {
+    const masterDB = getAllPlayers();
+    const found = masterDB.find(p => p.id === playerId);
+    return found?.stats?.score || 20.0;
+};
+
+// --- MAIN COMPONENT ---
 export default function LiveCard(props) {
   const [imgError, setImgError] = useState(false);
-  let player = props.player;
-  if (player && player.player) player = player.player; 
-  if (player && player.meta) player = player.meta;
-  const { isHeld, onToggle, finalScore, isFaceDown = false } = props;
+  const [flipped, setFlipped] = useState(false); 
+  const { player, isHeld, onToggle, finalScore, isFaceDown } = props;
 
+  // 1. HOOKS FIRST (Prevents Crash)
+  useEffect(() => { setFlipped(false); }, [player?.id]);
+
+  // 2. SAFETY RETURN
   if (!player || (!player.id && !player.name)) {
       return (
-          <div className="relative w-full h-full perspective-1000 group">
-             <div className="relative w-full h-full transition-all duration-500 transform-style-3d rotate-y-180"><CardBack /></div>
-          </div>
+        <div className="relative w-full h-full perspective-1000">
+            <div className="relative w-full h-full transition-all duration-500 transform-style-3d rotate-y-180">
+                <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden shadow-2xl backface-hidden rotate-y-180">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30 mix-blend-overlay"></div>
+                    <img src={logo} alt="Logo" className="w-20 h-20 object-contain opacity-50" />
+                </div>
+            </div>
+        </div>
       );
   }
 
-  const isResultPhase = !!finalScore;
-  const meta = (finalScore && finalScore.meta) ? finalScore.meta : player;
-  const safeCost = meta.cost !== undefined ? meta.cost : (meta.price || 0);
-  const tier = getTierStyle(safeCost);
-  const rawProj = meta.avg || meta.avg_fp || meta.fp || meta.projected || 0;
-  const displayScore = isResultPhase ? (finalScore.score || 0) : rawProj;
-  const isWin = isResultPhase && displayScore > (safeCost * 4); 
+  const handleClick = () => { if (finalScore) setFlipped(!flipped); else onToggle(); };
 
-  let finalImage = meta.image_url ? meta.image_url.replace("http://", "https://") : "";
-  if (!finalImage && meta.id) {
-      finalImage = `https://cdn.nba.com/headshots/nba/latest/1040x760/${meta.id}.png`;
+  const meta = player;
+  const safeCost = meta.cost || meta.price || 0;
+  const tier = getTierStyle(safeCost);
+  const nbaImage = `https://cdn.nba.com/headshots/nba/latest/1040x760/${meta.id}.png`;
+
+  // Color Logic (Strict Math)
+  const trueProjection = getTrueProjection(meta.id); 
+  const displayScore = finalScore ? finalScore.score : trueProjection;
+  const bonusAmt = finalScore ? (finalScore.score - trueProjection) : 0;
+  
+  let scoreColor = 'text-white';
+  if (finalScore) {
+      if (displayScore >= trueProjection * 1.15) scoreColor = 'text-green-400';
+      else if (displayScore <= trueProjection * 0.85) scoreColor = 'text-red-400';
   }
-  const getInitials = (name) => name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : "??";
 
   return (
-    <div onClick={onToggle} className={`relative w-full h-full perspective-1000 cursor-pointer transition-transform duration-200 active:scale-95 ${isHeld ? 'z-10' : 'z-0'}`}>
-      <div className={`relative w-full h-full transition-all duration-500 transform-style-3d ${isFaceDown ? 'rotate-y-180' : 'rotate-y-0'}`}>
-        <div className="hidden border-amber-400 text-amber-400 bg-amber-400 from-amber-900 border-purple-400 text-purple-400 bg-purple-400 from-purple-900 border-blue-400 text-blue-400 bg-blue-400 from-blue-900 border-slate-600 text-slate-400 bg-slate-500 from-slate-800"></div>
-        <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-xl border-2 ${isHeld ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : tier.border} flex flex-col overflow-hidden backface-hidden`}>
+    <div onClick={handleClick} className={`relative w-full h-full perspective-1000 cursor-pointer transition-transform duration-200 active:scale-95 ${isHeld ? 'z-10' : 'z-0'}`}>
+      <div className={`relative w-full h-full transition-all duration-500 transform-style-3d ${isFaceDown || flipped ? 'rotate-y-180' : ''}`}>
+        
+        {/* FRONT SIDE */}
+        <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-lg border ${tier.border} flex flex-col overflow-hidden backface-hidden`}>
             <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} to-slate-950 overflow-hidden min-h-0`}>
-                {!imgError && finalImage ? (
-                    <img src={finalImage} alt={meta.name} referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover object-top z-10 transition-opacity duration-300" onError={() => setImgError(true)} />
-                ) : (
-                   <div className="absolute inset-0 flex items-center justify-center z-0"><span className="text-5xl md:text-6xl font-black text-white/20 tracking-tighter select-none scale-150 transform -rotate-12">{getInitials(meta.name)}</span></div>
-                )}
-                <div className="absolute top-1 right-1 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10 z-20 flex items-center gap-1 shadow-lg"><div className={`w-1.5 h-1.5 rounded-full ${tier.bg} animate-pulse`}></div><span className={`font-mono font-black text-[10px] md:text-xs ${tier.text}`}>${safeCost.toFixed(1)}</span></div>
-                <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-slate-950 via-slate-900/90 to-transparent flex flex-col justify-end p-2 md:p-3 pb-1 md:pb-2 z-20"><span className="text-[9px] md:text-xs text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5 md:mb-1 line-clamp-1">{meta.team || "NBA"}</span><span className="text-[11px] md:text-sm text-white font-black uppercase italic tracking-tighter leading-none line-clamp-1 drop-shadow-md">{meta.name || "Unknown"}</span></div>
-                {isHeld && (<div className="absolute bottom-1 right-1 bg-yellow-400 text-black text-[8px] md:text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-lg animate-pulse z-30">HOLD</div>)}
+                {!imgError ? <img src={nbaImage} className="absolute inset-0 w-full h-full object-cover object-top z-10" onError={()=>setImgError(true)}/> : <div className="absolute inset-0 flex items-center justify-center text-white/20 font-black text-3xl">{meta.name.slice(0,2)}</div>}
+                <div className="absolute top-0.5 right-0.5 z-20"><span className={`font-mono font-black text-[10px] ${tier.text}`}>${safeCost.toFixed(1)}</span></div>
+                {isHeld && <div className="absolute top-0.5 left-0.5 bg-yellow-400 text-black text-[7px] font-black px-1 py-0.5 rounded z-30">HOLD</div>}
+                <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-slate-950 via-slate-900/90 to-transparent flex flex-col justify-end p-1.5 z-20">
+                    <span className="text-[8px] text-slate-400 font-bold uppercase line-clamp-1">{meta.team}</span>
+                    <span className="text-[10px] text-white font-black uppercase italic line-clamp-1">{meta.name}</span>
+                </div>
             </div>
-            <div className="shrink-0 h-[35%] min-h-[40px] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-1 relative z-10">
-                <div className="flex flex-col items-center justify-center bg-slate-900/50 rounded border border-white/5 py-1 w-full h-full overflow-hidden">
-                    <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${isResultPhase ? 'text-slate-400' : 'text-yellow-500'}`}>{isResultPhase ? 'FP' : 'PROJ'}</span>
-                        <span className={`text-lg md:text-xl font-mono font-black tracking-tighter ${isResultPhase ? (isWin ? 'text-green-400' : 'text-red-400') : 'text-white'}`}>
-                            <ScoreRoller value={displayScore} />
-                        </span>
+            <div className="shrink-0 h-[22%] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-0.5">
+                <div className="flex flex-col items-center justify-center bg-slate-900/50 rounded border border-white/5 w-full h-full">
+                    <div className="flex items-center gap-1 leading-none">
+                        <span className={`text-[7px] font-black uppercase ${finalScore ? 'text-slate-400' : 'text-yellow-500'}`}>{finalScore ? 'FP' : 'PROJ'}</span>
+                        <span className={`text-sm font-mono font-black tracking-tighter ${scoreColor}`}><ScoreRoller value={displayScore} /></span>
                     </div>
                 </div>
             </div>
         </div>
-        <CardBack />
+
+        {/* BACK SIDE (Game Log) */}
+        <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-lg border border-slate-700 flex flex-col overflow-hidden backface-hidden rotate-y-180 p-1 relative shadow-2xl">
+            {finalScore ? (
+                <>
+                    <div className="border-b border-slate-800 pb-0.5 mb-0.5 flex justify-between items-center">
+                        <div className="text-[8px] text-white font-black uppercase italic truncate w-[70%]">{meta.name}</div>
+                        <div className="text-[7px] text-slate-500 font-bold">{meta.team}</div>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-900/50 px-1 py-0.5 rounded border border-white/5 mb-0.5">
+                        <div className="flex items-center gap-1">
+                            <span className="text-[7px] text-slate-400 font-bold uppercase">FP</span>
+                            <div className={`text-sm font-mono font-black leading-none ${scoreColor}`}>
+                                {displayScore.toFixed(1)}
+                                {bonusAmt > 0 && <span className="text-[8px] text-yellow-400 ml-0.5 font-bold">(+{bonusAmt.toFixed(1)})</span>}
+                            </div>
+                        </div>
+                        <div className="flex gap-0.5">{finalScore.badges?.map((b,i)=><span key={i} className="text-[8px]">{b.icon}</span>)}</div>
+                    </div>
+                    <div className="text-center mb-0.5 border-b border-slate-800/50 pb-0.5">
+                        <span className="text-[7px] text-slate-400 font-mono font-bold uppercase tracking-tight">{formatGameDate(finalScore.date)} <span className="text-slate-600">|</span> {finalScore.matchup}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-0.5 mt-auto">
+                        <div className="bg-slate-900 p-0.5 rounded text-center"><div className="text-[6px] text-slate-500 font-bold">PTS</div><div className="text-[9px] text-white font-mono font-bold">{finalScore.pts}</div></div>
+                        <div className="bg-slate-900 p-0.5 rounded text-center"><div className="text-[6px] text-slate-500 font-bold">REB</div><div className="text-[9px] text-white font-mono font-bold">{finalScore.reb}</div></div>
+                        <div className="bg-slate-900 p-0.5 rounded text-center"><div className="text-[6px] text-slate-500 font-bold">AST</div><div className="text-[9px] text-white font-mono font-bold">{finalScore.ast}</div></div>
+                        <div className="bg-slate-900 p-0.5 rounded text-center"><div className="text-[6px] text-slate-500 font-bold">STL</div><div className="text-[9px] text-white font-mono font-bold">{finalScore.stl}</div></div>
+                        <div className="bg-slate-900 p-0.5 rounded text-center"><div className="text-[6px] text-slate-500 font-bold">BLK</div><div className="text-[9px] text-white font-mono font-bold">{finalScore.blk}</div></div>
+                        <div className="bg-slate-900 p-0.5 rounded text-center"><div className="text-[6px] text-slate-500 font-bold">TO</div><div className="text-[9px] text-white font-mono font-bold">{finalScore.to}</div></div>
+                    </div>
+                </>
+            ) : (
+                /* DEFAULT BACK LOGO */
+                <div className="w-full h-full flex items-center justify-center relative">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30 mix-blend-overlay"></div>
+                    <img src={logo} alt="Logo" className="w-20 h-20 object-contain opacity-50" />
+                </div>
+            )}
+        </div>
+
       </div>
     </div>
   );

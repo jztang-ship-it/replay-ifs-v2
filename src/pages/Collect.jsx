@@ -51,7 +51,6 @@ const SlotMachineReward = ({ onComplete, isClaimed, multiplier, lastWinAmount })
     }, 100);
   };
 
-  // 1. Guest View
   if (multiplier === 0) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 flex justify-between items-center opacity-70">
@@ -66,7 +65,6 @@ const SlotMachineReward = ({ onComplete, isClaimed, multiplier, lastWinAmount })
     );
   }
 
-  // 2. Claimed View
   if (isClaimed && !finalWin) {
      return (
        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col gap-2">
@@ -83,7 +81,6 @@ const SlotMachineReward = ({ onComplete, isClaimed, multiplier, lastWinAmount })
      );
   }
 
-  // 3. Just Won View
   if (finalWin) {
     return (
       <div className="bg-gradient-to-b from-yellow-500/20 to-orange-600/20 border border-yellow-500 rounded-xl p-6 text-center animate-bounce-short shadow-[0_0_40px_rgba(234,179,8,0.3)]">
@@ -99,7 +96,6 @@ const SlotMachineReward = ({ onComplete, isClaimed, multiplier, lastWinAmount })
     );
   }
 
-  // 4. Ready to Spin
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-1 relative overflow-hidden group">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50"></div>
@@ -137,7 +133,6 @@ export default function Collect() {
   const [view, setView] = useState('TASKS');
   const [lastWin, setLastWin] = useState(null); 
 
-  // --- XP MATH ---
   const currentTierIndex = VIP_TIERS.findLastIndex(t => xp >= t.minXp);
   const currentTier = VIP_TIERS[currentTierIndex] || VIP_TIERS[0];
   const nextTier = VIP_TIERS[currentTierIndex + 1] || currentTier;
@@ -145,7 +140,6 @@ export default function Collect() {
   const xpGained = xp - currentTier.minXp;
   const progressPercent = xpNeeded > 0 ? Math.min(100, Math.max(0, (xpGained / xpNeeded) * 100)) : 100;
 
-  // --- DATA PROCESSING ---
   const gamesPlayed = safeHistory.length;
   const wins = safeHistory.filter(h => h.result === 'WIN').length;
   let currentWinStreak = 0;
@@ -159,7 +153,6 @@ export default function Collect() {
     }
   }
 
-  // --- MISSION CHAINS ---
   const allMissions = [
     { id: 'd_play_3', group: 'play', step: 1, title: "Warm Up", desc: "Play 3 hands", icon: "🏀", reward: 50, current: gamesPlayed, target: 3 },
     { id: 'd_play_6', group: 'play', step: 2, title: "Rotation", desc: "Play 6 hands", icon: "🏀", reward: 100, current: gamesPlayed, target: 6 },
@@ -189,7 +182,6 @@ export default function Collect() {
 
   return (
     <PageContainer>
-      {/* LAYOUT FIX: Used h-full + overflow-y-auto to allow scrolling inside the fixed PageContainer */}
       <div className="flex flex-col h-full w-full max-w-xl mx-auto relative z-0 overflow-y-auto custom-scrollbar px-4 pt-4 pb-32">
         
         {/* TOP TOGGLE */}

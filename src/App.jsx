@@ -1,28 +1,20 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import Profile from './pages/Profile';
-import PulsePage from './pages/Pulse';       
-import CollectPage from './pages/Collect';   
-import PlayPage from './pages/Play'; 
-// IMPORT SIM
-import Simulate from './pages/Simulate';
+import Play from './pages/Play';
+import Pulse from './pages/Pulse';
+import Collect from './pages/Collect'; // RESTORED
+import Profile from './pages/Profile'; 
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/play" element={<Play />} />
+        <Route path="/pulse" element={<Pulse />} />
+        <Route path="/collect" element={<Collect />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/play" element={<PlayPage />} /> 
-        <Route path="/pulse" element={<PulsePage />} />
-        <Route path="/collect" element={<CollectPage />} />
-        
-        {/* ADD SIM ROUTE */}
-        <Route path="/simulate" element={<Simulate />} />
       </Routes>
     </BrowserRouter>
   );
