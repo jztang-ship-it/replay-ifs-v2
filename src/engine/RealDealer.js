@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 const CAP_CENTS = 1500;       // $15.00
 const MIN_TOTAL_CENTS = 1470; // $14.70
 const MAX_ATTEMPTS = 500;     // Retry limit for strict math
+const MIN_DB_COST = 100;      // Assume min player cost is $1.00
 
 // --- HELPERS ---
 const toCents = (d) => Math.round(parseFloat(d || 0) * 100);
@@ -46,73 +47,70 @@ export const fetchPlayablePool = async () => {
 };
 
 // ==========================================================
-//  THE UNIFIED SOLVER
-//  (Handles New Game, Zero Holds, and Partial Holds)
+//  THE POSITIONAL SOLVER
+//  (Preserves Indices of Held Cards)
 // ==========================================================
-const solveLineup = (pool, initialHeldCards) => {
-    const MIN_DB_COST = 100; // Assume min player is $1.00
-
-    for (let i = 0; i < MAX_ATTEMPTS; i++) {
-        // 1. SETUP HAND
-        let hand = [...initialHeldCards];
+const solveLineup = (pool, templateHand) => {
+    // templateHand is an array of 5: [Player, null, null, Player, null]
+    
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        // 1. Create a fresh working copy of the hand
+        const hand = [...templateHand];
         
-        // 2. CHECK: DO WE NEED ANCHORS?
-        // If the hand is empty (New Game OR Zero Holds selected), we MUST add anchors.
-        if (hand.length === 0) {
+        // 2. Identify which slots are empty (Indices 0-4)
+        const emptyIndices = hand.map((p, i) => p === null ? i : -1).filter(i => i !== -1);
+        
+        // 3. Calculate currently committed budget
+        let currentTotal = hand.reduce((sum, p) => sum + (p ? p.costCents : 0), 0);
+        let usedIds = new Set(hand.filter(p => p).map(p => p.id));
+
+        // 4. ANCHOR LOGIC (Only if the WHOLE hand was empty to start)
+        if (emptyIndices.length === 5) {
             const oranges = pool.filter(p => p.tier === 'ORANGE');
             const purples = pool.filter(p => p.tier === 'PURPLE');
             
-            // 50/50 Chance
             const useOrange = Math.random() < 0.5;
+            let anchor = null;
 
             if (useOrange && oranges.length > 0) {
-                // Option A: 1 Orange
-                hand.push(oranges[Math.floor(Math.random() * oranges.length)]);
-            } else if (purples.length >= 2) {
-                // Option B: 2 Purples (Distinct)
-                const p1 = purples[Math.floor(Math.random() * purples.length)];
-                const remaining = purples.filter(p => p.id !== p1.id);
-                if (remaining.length > 0) {
-                    hand.push(p1, remaining[Math.floor(Math.random() * remaining.length)]);
-                }
+                anchor = oranges[Math.floor(Math.random() * oranges.length)];
+            } else if (purples.length > 0) {
+                anchor = purples[Math.floor(Math.random() * purples.length)];
             }
-            
-            // Critical: If anchors failed (e.g. pool issue), restart loop.
-            if (hand.length === 0) continue;
+
+            if (anchor) {
+                const randomSlotIndex = Math.floor(Math.random() * 5);
+                hand[randomSlotIndex] = anchor;
+                usedIds.add(anchor.id);
+                currentTotal += anchor.costCents;
+                
+                const removeIdx = emptyIndices.indexOf(randomSlotIndex);
+                if (removeIdx > -1) emptyIndices.splice(removeIdx, 1);
+            }
         }
 
-        // 3. FILL REMAINING SLOTS
-        let usedIds = new Set(hand.map(p => p.id));
-        let currentTotal = hand.reduce((s, p) => s + p.costCents, 0);
+        // 5. FILL REMAINING EMPTY SLOTS
         let possible = true;
 
-        // If held cards already broke the budget, give up on this attempt
-        if (currentTotal > CAP_CENTS) continue; 
+        for (let i = 0; i < emptyIndices.length; i++) {
+            const slotIndex = emptyIndices[i];
+            const slotsLeftToFill = emptyIndices.length - i; 
+            const isLastCard = slotsLeftToFill === 1;
 
-        while (hand.length < 5) {
-            const slotsLeft = 5 - hand.length;
-            const isLastCard = slotsLeft === 1;
-
-            // Strict Math Constraints (Tunneling)
-            // "Don't spend so much we can't afford cheap players for the remaining slots"
-            const futureReserve = (slotsLeft - 1) * MIN_DB_COST; 
+            const futureReserve = (slotsLeftToFill - 1) * MIN_DB_COST;
             const maxSpend = CAP_CENTS - currentTotal - futureReserve;
-            
-            // "Don't spend so little we can't reach the target even with max players later"
-            const maxHelpLater = (slotsLeft - 1) * 600; 
+            const maxHelpLater = (slotsLeftToFill - 1) * 600;
             const minSpend = MIN_TOTAL_CENTS - currentTotal - maxHelpLater;
 
             let actualMin = Math.max(MIN_DB_COST, minSpend);
             let actualMax = maxSpend;
 
-            // Steering (Aim for perfect landing)
             if (!isLastCard) {
                 const idealTotal = 1490;
                 const needed = idealTotal - currentTotal;
-                const avgNeeded = needed / slotsLeft;
-                // Allow +/- 200 cents variance to find players
-                actualMax = Math.min(actualMax, avgNeeded + 200);
-                actualMin = Math.max(actualMin, avgNeeded - 200);
+                const avgNeeded = needed / slotsLeftToFill;
+                actualMax = Math.min(actualMax, avgNeeded + 250);
+                actualMin = Math.max(actualMin, avgNeeded - 250);
             }
 
             if (actualMin > actualMax) { possible = false; break; }
@@ -126,20 +124,20 @@ const solveLineup = (pool, initialHeldCards) => {
             if (candidates.length === 0) { possible = false; break; }
 
             const pick = candidates[Math.floor(Math.random() * candidates.length)];
-            hand.push(pick);
+            hand[slotIndex] = pick;
             usedIds.add(pick.id);
             currentTotal += pick.costCents;
         }
 
-        // 4. FINAL VALIDATION
+        // 6. FINAL VALIDATION
         if (possible && currentTotal >= MIN_TOTAL_CENTS && currentTotal <= CAP_CENTS) {
-            return hand.map((p, idx) => ({ 
-                ...p, 
-                instanceId: `${p.id}-${Date.now()}-${idx}` 
+            return hand.map((p, idx) => ({
+                ...p,
+                instanceId: `${p.id}-${Date.now()}-${idx}`
             }));
         }
     }
-    return null;
+    return null; 
 };
 
 // ==========================================================
@@ -149,23 +147,24 @@ const solveLineup = (pool, initialHeldCards) => {
 export const dealRealHand = async () => {
     const pool = await fetchPlayablePool();
     if (!pool || pool.length < 5) return null;
-    // Pass empty array -> Triggers Anchor Logic
-    return solveLineup(pool, []);
+    const emptyTemplate = Array(5).fill(null);
+    return solveLineup(pool, emptyTemplate);
 };
 
-export const replaceLineup = async (currentHand, heldCardsInput) => {
+export const replaceLineup = async (currentHand, heldIndices) => {
     const pool = await fetchPlayablePool();
     if (!pool) return null;
 
-    // Filter out any null/undefined IDs
-    const validHeld = (heldCardsInput || []).filter(c => c && c.id);
-    
-    // Re-hydrate held cards from pool (Fixes cost bugs from UI state)
-    const heldCards = validHeld
-        .map(h => pool.find(p => p.id === h.id) || h) 
-        .filter(p => p.costCents > 0);
+    // Build Template from Held Indices (Preserving Positions)
+    const template = Array(5).fill(null);
+    heldIndices.forEach(index => {
+        if (currentHand[index]) {
+            const poolPlayer = pool.find(p => p.id === currentHand[index].id);
+            if (poolPlayer) {
+                template[index] = poolPlayer;
+            }
+        }
+    });
 
-    // If heldCards is empty (Zero Holds), solveLineup sees [] and forces Anchors.
-    // If heldCards has cards (Partial), solveLineup respects them and fills the rest.
-    return solveLineup(pool, heldCards);
+    return solveLineup(pool, template);
 };

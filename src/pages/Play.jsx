@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import LiveCard from '../components/game/LiveCard';
 import { useBankroll } from '../context/BankrollContext';
-import { useRoster } from '../context/RosterContext';
 
 import { dealRealHand, replaceLineup, fetchPlayablePool } from '../engine/RealDealer'; 
 import { fetchRealGameLog } from '../data/real_nba_db';
 import { calculateScore } from '../utils/GameMath';
 
-// --- 📊 SYSTEM CHECK ---
+// --- SYSTEM CHECK ---
 const SystemCheck = () => {
     useEffect(() => {
         const checkDB = async () => {
@@ -49,7 +48,7 @@ const WinStamp = ({ label, color }) => (
   </div>
 );
 
-// --- LEGEND MODAL (Updated with Verified Lines) ---
+// --- LEGEND MODAL ---
 const LegendModal = ({ onClose }) => {
     const [tab, setTab] = useState('ODDS');
     return (
@@ -160,9 +159,12 @@ export default function Play() {
     }
   };
 
+  // --- TOGGLE HOLD (Standard Logic) ---
   const toggleHold = (i) => { 
       if(gamePhase === 'DEALT') {
-          const card = hand[i]; const cost = getCost(card);
+          const card = hand[i]; 
+          const cost = getCost(card);
+          
           if (heldIndices.includes(i)) {
               setHeldIndices(p => p.filter(x => x !== i)); 
               setVisibleBudget(prev => prev + cost); 
@@ -173,17 +175,14 @@ export default function Play() {
       }
   };
 
-  // --- DRAW HANDLER ---
+  // --- DRAW HANDLER (FIXED: Sends Positions, Not just cards) ---
   const handleDraw = async () => {
     setGamePhase('DRAWING');
     setSequencerIndex(-1); 
     setActiveBadges([]); 
     
-    // 1. Convert indices to objects for the dealer
-    const heldCards = heldIndices.map(i => hand[i]);
-    
-    // 2. Dealer fills the gaps using STRICT logic
-    let newHand = await replaceLineup(hand, heldCards);
+    // FIX: Send heldIndices so Dealer knows WHERE to keep cards
+    let newHand = await replaceLineup(hand, heldIndices);
 
     if (!newHand) {
         console.error("Dealer failed. Reverting.");
@@ -214,7 +213,7 @@ export default function Play() {
     setTimeout(() => setSequencerIndex(0), 200);
   };
 
-  // --- SEQUENCER (Updated Payout Logic) ---
+  // --- SEQUENCER ---
   useEffect(() => {
     if(gamePhase === 'DEALING') {
         if(sequencerIndex >= 0 && sequencerIndex < 5) setTimeout(() => setSequencerIndex(s => s+1), 200);
@@ -246,28 +245,11 @@ export default function Play() {
                 
                 let lbl = "LOSS"; let clr = "text-slate-500"; let win = 0;
                 
-                // --- VERIFIED PAYOUT LINES ---
-                if (total >= 215) { 
-                    win = betAmount * 30; 
-                    lbl = "JACKPOT"; 
-                    clr = "text-purple-400"; 
-                } else if (total >= 195) { 
-                    win = betAmount * 10; 
-                    lbl = "MEGA WIN"; 
-                    clr = "text-yellow-400"; 
-                } else if (total >= 175) { 
-                    win = betAmount * 5; 
-                    lbl = "BIG WIN"; 
-                    clr = "text-orange-400"; 
-                } else if (total >= 155) { 
-                    win = betAmount * 1.5; 
-                    lbl = "WINNER"; 
-                    clr = "text-green-400"; 
-                } else if (total >= 130) { 
-                    win = betAmount * 0.5; 
-                    lbl = "SAFETY"; 
-                    clr = "text-blue-400"; 
-                }
+                if (total >= 215) { win = betAmount * 30; lbl = "JACKPOT"; clr = "text-purple-400"; }
+                else if (total >= 195) { win = betAmount * 10; lbl = "MEGA WIN"; clr = "text-yellow-400"; }
+                else if (total >= 175) { win = betAmount * 5; lbl = "BIG WIN"; clr = "text-orange-400"; }
+                else if (total >= 155) { win = betAmount * 1.5; lbl = "WINNER"; clr = "text-green-400"; }
+                else if (total >= 130) { win = betAmount * 0.5; lbl = "SAFETY"; clr = "text-blue-400"; }
                 
                 if (win > 0) updateBankroll(win);
                 setPayoutResult({label:lbl, color:clr});
@@ -300,8 +282,7 @@ export default function Play() {
       {showLegend && <LegendModal onClose={() => setShowLegend(false)} />}
       
       <div className="fixed inset-0 bg-[#050b14] overflow-hidden flex flex-col z-0 pt-14">
-        
-        {/* --- JACKPOT BAR --- */}
+        {/* HEADER BAR */}
         <div className="shrink-0 w-full bg-slate-900 border-b border-white/5 px-4 py-2 flex items-center relative z-40 shadow-xl h-16">
              <div className="flex-1"></div>
              <div className="flex flex-col items-center justify-center">
@@ -316,7 +297,7 @@ export default function Play() {
              </div>
         </div>
 
-        {/* --- MAIN CARD AREA --- */}
+        {/* CARDS */}
         <div className="flex-1 w-full max-w-lg mx-auto flex flex-col items-center justify-center relative z-20 min-h-0 p-2">
             {gamePhase === 'END' && payoutResult && payoutResult.label !== "LOSS" && <WinStamp label={payoutResult.label} color={payoutResult.color} />}
             <div className="w-full h-full flex flex-col justify-between">
@@ -334,7 +315,7 @@ export default function Play() {
             </div>
         </div>
 
-        {/* --- FOOTER --- */}
+        {/* FOOTER */}
         <div className="shrink-0 w-full bg-slate-950/95 border-t border-slate-900 p-3 pb-6 z-50">
              <div className="max-w-lg mx-auto flex flex-col gap-2">
                  <div className="flex justify-between items-end px-1">
@@ -369,12 +350,10 @@ export default function Play() {
                             <button key={m} onClick={()=>setBetMultiplier(m)} disabled={gamePhase !== 'START' && gamePhase !== 'END' && gamePhase !== 'DEALT'} className={`px-2.5 py-2 rounded text-[10px] font-bold transition-all ${betMultiplier === m ? 'bg-blue-600 text-white shadow-lg scale-105' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>{m}x</button>
                         ))}
                     </div>
-
                     <div className="flex flex-col items-center justify-center px-2">
                         <span className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">BET</span>
                         <span className="text-lg font-mono font-black text-white">${BASE_BET * betMultiplier}</span>
                     </div>
-
                     <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleDeal:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`flex-1 h-12 rounded-xl font-black text-lg uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center max-w-[120px] ${gamePhase==='DEALT'?'bg-green-600 text-white hover:bg-green-500':'bg-blue-600 text-white hover:bg-blue-500'}`}>
                         {gamePhase==='DEALT'?'DRAW':(gamePhase==='DEALING'?'...':(gamePhase==='REVEALING'?'...': 'REPLAY'))}
                     </button>

@@ -6,7 +6,6 @@ const ScoreRoller = ({ value }) => {
   useEffect(() => {
     const end = parseFloat(value) || 0;
     if (Math.abs(targetRef.current - end) < 0.1) { targetRef.current = end; setDisplay(end); return; }
-    // Super fast roller
     const start = display; targetRef.current = end; const duration = 300; let startTime;
     const animate = (time) => { if (!startTime) startTime = time; const progress = Math.min((time - startTime) / duration, 1); const ease = 1 - Math.pow(1 - progress, 4); const current = start + (end - start) * ease; setDisplay(current); if (progress < 1) requestAnimationFrame(animate); else setDisplay(end); };
     requestAnimationFrame(animate);
@@ -25,7 +24,6 @@ const formatGameDate = (dateString) => {
 
 const getTierStyle = (cost) => {
     const val = parseFloat(cost || 0);
-    // Removed all glows/shadows for maximum sharpness
     if (val >= 5.0) return { border: 'border-amber-400', text: 'text-amber-400', bg: 'bg-amber-400', grad: 'from-amber-900' };
     if (val >= 4.0) return { border: 'border-purple-400', text: 'text-purple-400', bg: 'bg-purple-400', grad: 'from-purple-900' };
     if (val >= 2.5) return { border: 'border-blue-400', text: 'text-blue-400', bg: 'bg-blue-400', grad: 'from-blue-900' };
@@ -47,7 +45,6 @@ export default function LiveCard(props) {
   const meta = player || { cost: 0, name: '', team: '' };
   const tier = getTierStyle(meta.cost);
   
-  // FIXED SOURCE: Using the standard 260x190 endpoint which is sharper and more consistent
   const nbaImage = player ? `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/${meta.id}.png` : null;
   
   const trueProjection = getTrueProjection(player);
@@ -64,7 +61,7 @@ export default function LiveCard(props) {
             <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-lg border-[1.5px] ${tier.border} flex flex-col overflow-hidden backface-hidden antialiased`}>
                 <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} to-slate-950 overflow-hidden min-h-0`}>
                     
-                    {/* PLAYER IMAGE - Added mix-blend-mode to blend better with dark bg, and optimized contrast */}
+                    {/* PLAYER IMAGE */}
                     {!imgError && nbaImage ? (
                         <img 
                             src={nbaImage} 
@@ -74,12 +71,12 @@ export default function LiveCard(props) {
                         />
                     ) : null}
                     
-                    {/* COST BADGE - Sharp, no shadows */}
-                    <div className="absolute top-1 right-1 z-20 bg-black/60 rounded px-1 backdrop-blur-[2px]">
-                        <span className={`font-mono font-black text-xs ${tier.text}`}>${meta.cost.toFixed(1)}</span>
+                    {/* COST BADGE - CHANGED: Removed bg-black/60 and backdrop blur */}
+                    <div className="absolute top-1 right-1 z-20 px-1">
+                        <span className={`font-mono font-black text-xs ${tier.text} drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]`}>${meta.cost.toFixed(1)}</span>
                     </div>
 
-                    {/* HOLD BADGE - FIXED: Removed blur/pulse/shadow for pure sharpness */}
+                    {/* HOLD BADGE */}
                     {isHeld && (
                         <div className="absolute top-0.5 left-0.5 z-30">
                             <div className="bg-yellow-400 text-black text-[9px] font-black px-1.5 py-0.5 rounded-sm border border-black leading-none">
@@ -88,7 +85,7 @@ export default function LiveCard(props) {
                         </div>
                     )}
                     
-                    {/* BONUS ICONS - Sharp containers */}
+                    {/* BONUS ICONS */}
                     {showResult && finalScore?.badges?.length > 0 && (
                         <div className="absolute bottom-9 left-1 flex flex-wrap gap-0.5 z-30">
                             {finalScore.badges.map((b, i) => (
@@ -99,10 +96,10 @@ export default function LiveCard(props) {
                         </div>
                     )}
                     
-                    {/* NAME PLATE - Minimized Gradient (No chin blur) */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col justify-end p-1 z-20 pt-4">
-                        <span className="text-[7px] text-slate-400 font-bold uppercase leading-none mb-0.5 tracking-tight">{meta.team}</span>
-                        <span className="text-[10px] text-white font-black uppercase italic leading-none line-clamp-1 tracking-tight">{meta.name}</span>
+                    {/* NAME PLATE - CHANGED: Removed Gradient, Added Drop Shadow to Text */}
+                    <div className="absolute bottom-0 left-0 right-0 flex flex-col justify-end p-1.5 z-20">
+                        <span className="text-[7px] text-slate-200 font-bold uppercase leading-none mb-0.5 tracking-tight drop-shadow-md">{meta.team}</span>
+                        <span className="text-[10px] text-white font-black uppercase italic leading-none line-clamp-1 tracking-tight drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)]">{meta.name}</span>
                     </div>
                 </div>
                 
@@ -119,7 +116,7 @@ export default function LiveCard(props) {
              </div>
         )}
 
-        {/* --- BACK FACE (Stats) --- */}
+        {/* --- BACK FACE (Unchanged) --- */}
         <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-lg border-2 border-slate-700 flex flex-col overflow-hidden backface-hidden rotate-y-180 p-1 antialiased`}>
             {manualFlip && finalScore ? (
                 <>
@@ -145,8 +142,10 @@ export default function LiveCard(props) {
             ) : (
                 <div className="w-full h-full flex items-center justify-center relative bg-slate-950">
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
-                    <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center animate-pulse">
-                        <span className="text-[8px] font-black text-slate-600">REPLAY</span>
+                    <div className="relative z-10 text-center px-1">
+                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 leading-relaxed">
+                            SPORTS <span className="text-yellow-400">IS</span> SOCIAL
+                        </div>
                     </div>
                 </div>
             )}
