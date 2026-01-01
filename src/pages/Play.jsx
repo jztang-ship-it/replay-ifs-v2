@@ -4,7 +4,8 @@ import LiveCard from '../components/game/LiveCard';
 import { useBankroll } from '../context/BankrollContext';
 import { useRoster } from '../context/RosterContext';
 
-import { dealRealHand, fetchPlayablePool } from '../engine/RealDealer';
+// --- THE FIX: IMPORT THE REAL DEALER ---
+import { dealRealHand, replaceLineup, fetchPlayablePool } from '../engine/RealDealer'; 
 import { fetchRealGameLog } from '../data/real_nba_db';
 import { calculateScore } from '../utils/GameMath';
 
@@ -208,33 +209,34 @@ export default function Play() {
       }
   };
 
-  // --- DRAW HANDLER (SPEEDED UP) ---
+  // --- DRAW HANDLER (THE FIX) ---
   const handleDraw = async () => {
     setGamePhase('DRAWING');
     setSequencerIndex(-1); 
     setActiveBadges([]); 
     
-    let currentHand = [...hand];
-    const unheldIndices = [0, 1, 2, 3, 4].filter(i => !heldIndices.includes(i));
+    // 1. IDENTIFY HELD CARDS
+    // Convert indices to actual player objects
+    const heldCards = heldIndices.map(i => hand[i]);
     
-    if (unheldIndices.length > 0) {
-        const usedBudget = heldIndices.reduce((sum, idx) => sum + (currentHand[idx]?.cost || 0), 0);
-        const pool = await fetchPlayablePool();
-        const budgetPerCard = (SALARY_CAP - usedBudget) / unheldIndices.length;
+    // 2. GET REPLACEMENT HAND FROM DEALER
+    // If heldCards is empty, dealer treats it as a Zero-Hold Replacement (New Hand Logic).
+    let newHand = await replaceLineup(hand, heldCards);
 
-        for (let i of unheldIndices) {
-            const candidates = pool.filter(p => (p.cost || 0) <= budgetPerCard + 1.5);
-            const pick = candidates.length > 0 
-                ? candidates[Math.floor(Math.random() * candidates.length)] 
-                : pool[0]; 
-            currentHand[i] = { ...pick, instanceId: `${pick.id}-${Date.now()}-${i}` };
-        }
+    // Fallback if dealer fails (rare)
+    if (!newHand) {
+        console.error("Dealer failed to generate hand. Keeping current hand.");
+        newHand = [...hand]; 
     }
-    setHand(currentHand);
+    
+    setHand(newHand);
 
+    // 3. FETCH SCORES & STATS
     const newResults = {};
     for (let i = 0; i < 5; i++) {
-        const player = currentHand[i];
+        const player = newHand[i];
+        if (!player) continue;
+
         const log = await fetchRealGameLog(player.id);
         const math = calculateScore(log);
         newResults[`${player.id}-${i}`] = { 
