@@ -1,35 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-import logo from '../../assets/logo.png'; 
-import { getAllPlayers } from '../../data/real_nba_db';
+// DELETED: import { getAllPlayers } from ... (This was the cause of the crash)
 
-// --- ROLLER ---
 const ScoreRoller = ({ value }) => {
   const [display, setDisplay] = useState(() => parseFloat(value) || 0);
   const targetRef = useRef(parseFloat(value) || 0);
-  
   useEffect(() => {
     const end = parseFloat(value) || 0;
     if (Math.abs(targetRef.current - end) < 0.1) { targetRef.current = end; setDisplay(end); return; }
-    
     const start = display; targetRef.current = end; const duration = 600; let startTime;
-    const animate = (time) => { 
-        if (!startTime) startTime = time; 
-        const progress = Math.min((time - startTime) / duration, 1); 
-        const ease = 1 - Math.pow(1 - progress, 4); 
-        const current = start + (end - start) * ease; 
-        setDisplay(current); 
-        if (progress < 1) requestAnimationFrame(animate); else setDisplay(end); 
-    };
+    const animate = (time) => { if (!startTime) startTime = time; const progress = Math.min((time - startTime) / duration, 1); const ease = 1 - Math.pow(1 - progress, 4); const current = start + (end - start) * ease; setDisplay(current); if (progress < 1) requestAnimationFrame(animate); else setDisplay(end); };
     requestAnimationFrame(animate);
   }, [value]);
-  
   return <>{display.toFixed(1)}</>;
 };
 
 const formatGameDate = (dateString) => {
-    if (!dateString) return "TODAY";
-    if (dateString.includes("Dec")) return dateString;
+    if (!dateString || dateString === 'NO DATA') return "TODAY";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "TODAY";
     const day = date.getDate();
     const month = date.toLocaleString('default', { month: 'short' });
     return `${day} ${month}`;
@@ -43,10 +31,9 @@ const getTierStyle = (cost) => {
     return { border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-500', grad: 'from-slate-800', glow: '' };
 };
 
-const getTrueProjection = (playerId) => {
-    const masterDB = getAllPlayers();
-    const found = masterDB.find(p => p.id === playerId);
-    return found?.stats?.score || 20.0;
+// NEW: Estimate Projection from Cost (Since we don't have the fake DB anymore)
+const getTrueProjection = (player) => {
+    return (player?.cost || 0) * 9.5; 
 };
 
 export default function LiveCard(props) {
@@ -55,22 +42,17 @@ export default function LiveCard(props) {
   const { player, isHeld, onToggle, finalScore, isFaceDown, showResult } = props;
 
   useEffect(() => { setManualFlip(false); }, [player?.id]);
+  const handleClick = () => { if (showResult && finalScore) setManualFlip(!manualFlip); else onToggle && onToggle(); };
 
-  const handleClick = () => { 
-      // Only allow click flip if game is over (showResult is true)
-      if (showResult && finalScore) setManualFlip(!manualFlip); 
-      else onToggle && onToggle(); 
-  };
-
-  // Safe defaults if player is null
   const meta = player || { cost: 0, name: '', team: '' };
   const tier = getTierStyle(meta.cost);
   const nbaImage = player ? `https://cdn.nba.com/headshots/nba/latest/1040x760/${meta.id}.png` : null;
-  const trueProjection = player ? getTrueProjection(meta.id) : 0; 
+  
+  // FIXED: Use the new helper instead of the broken import
+  const trueProjection = getTrueProjection(player);
   
   const displayScore = (showResult && finalScore) ? finalScore.score : trueProjection;
   const scoreColor = (showResult && finalScore && displayScore >= trueProjection * 1.15) ? 'text-green-400' : (showResult && finalScore && displayScore <= trueProjection * 0.85 ? 'text-red-400' : 'text-white');
-  
   const showBack = isFaceDown || manualFlip;
 
   return (
@@ -83,17 +65,19 @@ export default function LiveCard(props) {
                 <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} to-slate-950 overflow-hidden min-h-0`}>
                     {!imgError && nbaImage ? <img src={nbaImage} className="absolute inset-0 w-full h-full object-cover object-top z-10" onError={()=>setImgError(true)}/> : null}
                     
-                    {/* COST */}
                     <div className="absolute top-1 right-1 z-20">
                         <span className={`font-mono font-black text-xs ${tier.text} drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)]`}>${meta.cost.toFixed(1)}</span>
                     </div>
 
                     {isHeld && <div className="absolute top-0.5 left-0.5 bg-yellow-400 text-black text-[8px] font-black px-1.5 py-0.5 rounded z-30 animate-pulse shadow-lg">HELD</div>}
                     
-                    {/* BADGES */}
                     {showResult && finalScore?.badges?.length > 0 && (
                         <div className="absolute bottom-10 left-1 flex flex-wrap gap-0.5 z-30">
-                            {finalScore.badges.map((b, i) => <div key={i} className="bg-black/80 border border-yellow-500/50 rounded-full w-4 h-4 flex items-center justify-center text-[8px]">{b.icon}</div>)}
+                            {finalScore.badges.map((b, i) => (
+                                <div key={i} className="bg-black/80 border border-yellow-500/50 rounded-full w-4 h-4 flex items-center justify-center text-[8px]">
+                                    {b.icon || b} 
+                                </div>
+                            ))}
                         </div>
                     )}
                     
@@ -110,15 +94,13 @@ export default function LiveCard(props) {
                 </div>
             </div>
         ) : (
-            /* EMPTY SLOT FRONT (Never seen if logic is correct, but safe fallback) */
              <div className="absolute inset-0 w-full h-full bg-slate-900 rounded-lg border-2 border-slate-800 flex items-center justify-center backface-hidden">
              </div>
         )}
 
-        {/* --- BACK FACE (Common to all states) --- */}
+        {/* --- BACK FACE --- */}
         <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-lg border-2 border-slate-700 flex flex-col overflow-hidden backface-hidden rotate-y-180 p-1 shadow-2xl`}>
             {manualFlip && finalScore ? (
-                /* STATS BACK */
                 <>
                     <div className="border-b border-slate-800 pb-0.5 mb-0.5 flex justify-between items-center">
                         <div className="text-[8px] text-white font-black uppercase italic truncate w-[75%]">{meta.name}</div>
@@ -131,19 +113,20 @@ export default function LiveCard(props) {
                         </div>
                     </div>
                     <div className="text-center mb-1 border-b border-slate-800/50 pb-0.5">
-                        <span className="text-[8px] text-slate-400 font-mono font-bold uppercase">{formatGameDate(finalScore.date)} | <span className="text-white">{finalScore.matchup}</span></span>
+                        <span className="text-[8px] text-slate-400 font-mono font-bold uppercase">{formatGameDate(finalScore.date)} | <span className="text-white">{finalScore.matchup || 'v OPP'}</span></span>
                     </div>
                     <div className="grid grid-cols-3 gap-1 mt-auto">
-                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">PTS</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.pts}</div></div>
-                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">REB</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.reb}</div></div>
-                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">AST</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.ast}</div></div>
+                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">PTS</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.stats?.pts || 0}</div></div>
+                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">REB</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.stats?.reb || 0}</div></div>
+                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">AST</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.stats?.ast || 0}</div></div>
                     </div>
                 </>
             ) : (
-                /* LOGO BACK (Default) */
                 <div className="w-full h-full flex items-center justify-center relative bg-slate-950">
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
-                    <img src={logo} alt="Logo" className="w-16 h-16 object-contain opacity-60 drop-shadow-2xl animate-pulse" />
+                    <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center animate-pulse">
+                        <span className="text-[8px] font-black text-slate-600">REPLAY</span>
+                    </div>
                 </div>
             )}
         </div>
