@@ -8,11 +8,36 @@ import { dealRealHand, fetchPlayablePool } from '../engine/RealDealer';
 import { fetchRealGameLog } from '../data/real_nba_db';
 import { calculateScore } from '../utils/GameMath';
 
+// --- 📊 IMPROVED SYSTEM CHECK (View in Browser Console) ---
 const SystemCheck = () => {
     useEffect(() => {
         const checkDB = async () => {
+            console.clear(); 
+            console.log("%c--- 📊 DATABASE AUDIT ---", "color: cyan; font-weight: bold; font-size: 14px;");
+            
             const pool = await fetchPlayablePool();
-            if (pool.length === 0) console.warn("[DB] POOL IS EMPTY!");
+            
+            if (!pool || pool.length === 0) {
+                console.warn("❌ [CRITICAL] POOL IS EMPTY! check src/data/real_nba_db.js");
+                return;
+            }
+
+            // COUNT TIERS
+            let orange = 0, purple = 0, blue = 0, grey = 0;
+            pool.forEach(p => {
+                const cost = parseFloat(p.cost);
+                if (cost >= 5.0) orange++;
+                else if (cost >= 4.0) purple++;
+                else if (cost >= 2.5) blue++;
+                else grey++;
+            });
+
+            console.log(`✅ Total Players Loaded: ${pool.length}`);
+            console.log(`%c🟠 Orange Tier ($5.0+): ${orange} players`, "color: orange; font-weight: bold");
+            console.log(`%c🟣 Purple Tier ($4.0+): ${purple} players`, "color: #c084fc; font-weight: bold");
+            console.log(`%c🔵 Blue Tier   ($2.5+): ${blue} players`, "color: #60a5fa; font-weight: bold");
+            console.log(`⚪ Grey Tier   (<$2.5): ${grey} players`);
+            console.log("-------------------------------------");
         };
         checkDB();
     }, []);
@@ -46,7 +71,7 @@ const WinStamp = ({ label, color }) => (
   </div>
 );
 
-// --- LEGEND MODAL (Unchanged) ---
+// --- LEGEND MODAL ---
 const LegendModal = ({ onClose }) => {
     const [tab, setTab] = useState('ODDS');
     return (
@@ -158,12 +183,11 @@ export default function Play() {
     setSequencerIndex(-1);
     setHand([null, null, null, null, null]);
 
-    // Use shorter delay for "Computer Thinking" feel
     const newHand = await dealRealHand();
     
     if (newHand) {
         setHand(newHand);
-        setTimeout(() => setSequencerIndex(0), 200); // Was 500
+        setTimeout(() => setSequencerIndex(0), 200); 
     } else {
         alert("Market Closed (Database Empty). Refunded.");
         updateBankroll(betAmount);
@@ -224,14 +248,14 @@ export default function Play() {
     
     setFinalScores(newResults);
     setGamePhase('REVEALING');
-    setTimeout(() => setSequencerIndex(0), 200); // Was 500
+    setTimeout(() => setSequencerIndex(0), 200);
   };
 
   // --- SEQUENCER (SPEEDED UP) ---
   useEffect(() => {
     if(gamePhase === 'DEALING') {
-        if(sequencerIndex >= 0 && sequencerIndex < 5) setTimeout(() => setSequencerIndex(s => s+1), 200); // Was 400 
-        else if (sequencerIndex >= 5) setTimeout(() => setGamePhase('DEALT'), 200); // Was 500
+        if(sequencerIndex >= 0 && sequencerIndex < 5) setTimeout(() => setSequencerIndex(s => s+1), 200);
+        else if (sequencerIndex >= 5) setTimeout(() => setGamePhase('DEALT'), 200);
     }
     if(gamePhase === 'REVEALING') {
         if(sequencerIndex >= 0 && sequencerIndex < 5) {
@@ -250,10 +274,10 @@ export default function Play() {
                         setActiveBadges(prev => [...prev, ...finalScores[key].badges]);
                     }
                 }
-            }, 200); // Was 400
+            }, 200);
 
             // Next Card Delay
-            setTimeout(() => setSequencerIndex(s => s+1), 600); // Was 1000
+            setTimeout(() => setSequencerIndex(s => s+1), 600);
         } else if (sequencerIndex >= 5) {
             setTimeout(() => {
                 const total = Object.values(finalScores).reduce((a,b) => a+b.score, 0);
@@ -269,7 +293,7 @@ export default function Play() {
                 
                 if (addHistory) addHistory({ result: lbl, score: total, payout: win, date: new Date().toISOString() });
                 setGamePhase('END');
-            }, 400); // Was 800
+            }, 400);
         }
     }
   }, [gamePhase, sequencerIndex]);
@@ -370,7 +394,6 @@ export default function Play() {
                         <span className="text-lg font-mono font-black text-white">${BASE_BET * betMultiplier}</span>
                     </div>
 
-                    {/* BUTTON TEXT CHANGED TO REPLAY */}
                     <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleDeal:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`flex-1 h-12 rounded-xl font-black text-lg uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center max-w-[120px] ${gamePhase==='DEALT'?'bg-green-600 text-white hover:bg-green-500':'bg-blue-600 text-white hover:bg-blue-500'}`}>
                         {gamePhase==='DEALT'?'DRAW':(gamePhase==='DEALING'?'...':(gamePhase==='REVEALING'?'...': 'REPLAY'))}
                     </button>

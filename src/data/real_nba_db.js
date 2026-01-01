@@ -2,28 +2,43 @@ import { supabase } from '../lib/supabaseClient';
 
 export const fetchRealGameLog = async (playerId) => {
     try {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('game_logs')
             .select('*')
-            .eq('player_id', playerId)
-            .limit(20);
+            .eq('player_id', playerId);
 
+        if (error) throw error;
+        
+        // Fallback if no data found
         if (!data || data.length === 0) {
-            // Safety Fallback: Return zeroes if no data exists yet
-            return { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, turnovers: 0, game_date: 'NO DATA' };
+            return { 
+                pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, turnovers: 0, 
+                game_date: 'NO DATA', 
+                matchup: 'N/A' 
+            };
         }
 
-        const log = data[Math.floor(Math.random() * data.length)];
+        // Pick Random Game
+        const randomIndex = Math.floor(Math.random() * data.length);
+        const randomGame = data[randomIndex];
+
         return {
-            ...log,
-            pts: parseFloat(log.pts || 0),
-            reb: parseFloat(log.reb || 0),
-            ast: parseFloat(log.ast || 0),
-            stl: parseFloat(log.stl || 0),
-            blk: parseFloat(log.blk || 0),
-            turnovers: parseFloat(log.turnovers || 0)
+            pts: Number(randomGame.pts),
+            reb: Number(randomGame.reb),
+            ast: Number(randomGame.ast),
+            stl: Number(randomGame.stl),
+            blk: Number(randomGame.blk),
+            turnovers: Number(randomGame.turnovers),
+            game_date: randomGame.game_date,
+            matchup: randomGame.matchup || 'vs OPP'
         };
+
     } catch (err) {
-        return { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, turnovers: 0 };
+        console.error("Log Fetch Error:", err);
+        return { 
+            pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, turnovers: 0, 
+            game_date: 'ERROR', 
+            matchup: 'ERR' 
+        };
     }
 };
