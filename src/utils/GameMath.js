@@ -20,7 +20,7 @@ export const calculateScore = (stats) => {
 
     const bonuses = [];
 
-    // --- 4. BONUS LOGIC (With Emojis) ---
+    // --- 4. BONUS LOGIC ---
 
     // A. POINTS TIERS (Highest One Only)
     if (pts >= 50) { 
@@ -68,7 +68,7 @@ export const calculateScore = (stats) => {
     }
 
     // E. MILESTONES (Stackable)
-    let doubleDigitCount = 0; // FIXED: Variable name matches usage now
+    let doubleDigitCount = 0;
     if (pts >= 10) doubleDigitCount++;
     if (reb >= 10) doubleDigitCount++;
     if (ast >= 10) doubleDigitCount++;
@@ -81,7 +81,7 @@ export const calculateScore = (stats) => {
         bonuses.push({ label: "5x5", icon: "🖐️", score: 15 });
     }
 
-    // Quad/Triple/Double
+    // Quad/Triple/Double (Highest One Only)
     if (doubleDigitCount >= 4) {
         score += 50;
         bonuses.push({ label: "QUAD", icon: "🦕", score: 50 });
@@ -95,7 +95,7 @@ export const calculateScore = (stats) => {
 
     return {
         score: Math.round(score * 10) / 10,
-        bonuses: bonuses, // Array of objects {label, icon, score}
+        bonuses: bonuses, 
         rawStats: { pts, reb, ast, stl, blk, tov }
     };
 };
