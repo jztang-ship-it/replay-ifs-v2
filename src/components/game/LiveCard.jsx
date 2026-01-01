@@ -13,13 +13,30 @@ const ScoreRoller = ({ value }) => {
   return <>{display.toFixed(1)}</>;
 };
 
+// UPDATED: Format "YY - Mon DD" (e.g., 25 - Feb 23)
 const formatGameDate = (dateString) => {
     if (!dateString || dateString === 'NO DATA') return "TODAY";
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return "TODAY";
     const day = date.getDate();
     const month = date.toLocaleString('default', { month: 'short' });
-    return `${day} ${month}`;
+    const year = date.getFullYear().toString().slice(-2);
+    return `${year} - ${month} ${day}`;
+};
+
+// UPDATED: Parse matchup to show only opponent (VS. CHI or @ CHI)
+const formatMatchup = (matchupString) => {
+    if (!matchupString) return 'VS. OPP';
+    // standard format is usually "TEAM @ OPP" or "TEAM vs OPP"
+    if (matchupString.includes('@')) {
+        const parts = matchupString.split('@');
+        return `@ ${parts[1].trim()}`;
+    }
+    if (matchupString.toLowerCase().includes('vs')) {
+        const parts = matchupString.split(/vs\.?/i);
+        return `VS. ${parts[1].trim()}`;
+    }
+    return matchupString; 
 };
 
 const getTierStyle = (cost) => {
@@ -49,8 +66,19 @@ export default function LiveCard(props) {
   
   const trueProjection = getTrueProjection(player);
   const displayScore = (showResult && finalScore) ? finalScore.score : trueProjection;
+  const totalBonus = finalScore?.badges?.reduce((sum, b) => sum + b.score, 0) || 0;
   const scoreColor = (showResult && finalScore && displayScore >= trueProjection * 1.15) ? 'text-green-400' : (showResult && finalScore && displayScore <= trueProjection * 0.85 ? 'text-red-400' : 'text-white');
   const showBack = isFaceDown || manualFlip;
+
+  // Score Display with (X) format
+  const ScoreDisplay = ({ score, bonus, colorBase, isRoller }) => (
+      <div className={`font-mono font-black leading-none flex items-baseline ${colorBase}`}>
+          {isRoller ? <ScoreRoller value={score} /> : score.toFixed(1)}
+          {showResult && bonus > 0 && (
+              <span className="text-yellow-400 ml-[1px] text-[0.8em]">({bonus})</span>
+          )}
+      </div>
+  );
 
   return (
     <div onClick={handleClick} className={`relative w-full h-full perspective-1000 cursor-pointer transition-transform duration-100 active:scale-95 transform-gpu ${isHeld ? 'z-10 scale-105' : 'z-0'}`}>
@@ -60,54 +88,40 @@ export default function LiveCard(props) {
         {player ? (
             <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-lg border-[1.5px] ${tier.border} flex flex-col overflow-hidden backface-hidden antialiased`}>
                 <div className={`relative flex-1 w-full bg-gradient-to-b ${tier.grad} to-slate-950 overflow-hidden min-h-0`}>
-                    
-                    {/* PLAYER IMAGE */}
                     {!imgError && nbaImage ? (
-                        <img 
-                            src={nbaImage} 
-                            className="absolute inset-0 w-full h-full object-cover object-top z-10 [image-rendering:-webkit-optimize-contrast]" 
-                            onError={()=>setImgError(true)}
-                            loading="eager"
-                        />
+                        <img src={nbaImage} className="absolute inset-0 w-full h-full object-cover object-top z-10 [image-rendering:-webkit-optimize-contrast]" onError={()=>setImgError(true)} loading="eager" />
                     ) : null}
                     
-                    {/* COST BADGE - CHANGED: Removed bg-black/60 and backdrop blur */}
                     <div className="absolute top-1 right-1 z-20 px-1">
                         <span className={`font-mono font-black text-xs ${tier.text} drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]`}>${meta.cost.toFixed(1)}</span>
                     </div>
 
-                    {/* HOLD BADGE */}
                     {isHeld && (
                         <div className="absolute top-0.5 left-0.5 z-30">
-                            <div className="bg-yellow-400 text-black text-[9px] font-black px-1.5 py-0.5 rounded-sm border border-black leading-none">
-                                HOLD
-                            </div>
+                            <div className="bg-yellow-400 text-black text-[9px] font-black px-1.5 py-0.5 rounded-sm border border-black leading-none">HOLD</div>
                         </div>
                     )}
                     
-                    {/* BONUS ICONS */}
                     {showResult && finalScore?.badges?.length > 0 && (
                         <div className="absolute bottom-9 left-1 flex flex-wrap gap-0.5 z-30">
                             {finalScore.badges.map((b, i) => (
-                                <div key={i} className="bg-black border border-slate-500 rounded-full w-4 h-4 flex items-center justify-center text-[10px] pb-0.5" title={b.label}>
-                                    {b.icon} 
-                                </div>
+                                <div key={i} className="bg-black border border-slate-500 rounded-full w-4 h-4 flex items-center justify-center text-[10px] pb-0.5" title={b.label}>{b.icon}</div>
                             ))}
                         </div>
                     )}
                     
-                    {/* NAME PLATE - CHANGED: Removed Gradient, Added Drop Shadow to Text */}
                     <div className="absolute bottom-0 left-0 right-0 flex flex-col justify-end p-1.5 z-20">
                         <span className="text-[7px] text-slate-200 font-bold uppercase leading-none mb-0.5 tracking-tight drop-shadow-md">{meta.team}</span>
                         <span className="text-[10px] text-white font-black uppercase italic leading-none line-clamp-1 tracking-tight drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)]">{meta.name}</span>
                     </div>
                 </div>
                 
-                {/* SCORE FOOTER */}
                 <div className="shrink-0 h-[22%] bg-slate-950 border-t border-slate-800 flex flex-col justify-center p-0.5 relative z-30">
                     <div className="flex items-center justify-center gap-1.5 leading-none">
                         <span className={`text-[7px] font-black uppercase tracking-widest ${showResult ? 'text-slate-500' : 'text-yellow-500'}`}>{showResult ? 'FP' : 'PROJ'}</span>
-                        <span className={`text-xl font-mono font-black tracking-tighter ${scoreColor}`}><ScoreRoller value={displayScore} /></span>
+                        <span className="text-xl">
+                            <ScoreDisplay score={displayScore} bonus={totalBonus} colorBase={scoreColor} isRoller={true} />
+                        </span>
                     </div>
                 </div>
             </div>
@@ -116,27 +130,67 @@ export default function LiveCard(props) {
              </div>
         )}
 
-        {/* --- BACK FACE (Unchanged) --- */}
-        <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-lg border-2 border-slate-700 flex flex-col overflow-hidden backface-hidden rotate-y-180 p-1 antialiased`}>
+        {/* --- BACK FACE --- */}
+        <div className={`absolute inset-0 w-full h-full bg-slate-900 rounded-lg border-2 border-slate-700 flex flex-col overflow-hidden backface-hidden rotate-y-180 p-0.5 antialiased`}>
             {manualFlip && finalScore ? (
                 <>
+                    {/* Header: Name/Team */}
                     <div className="border-b border-slate-800 pb-0.5 mb-0.5 flex justify-between items-center">
                         <div className="text-[8px] text-white font-black uppercase italic truncate w-[75%]">{meta.name}</div>
                         <div className="text-[7px] text-slate-500 font-bold">{meta.team}</div>
                     </div>
-                    <div className="flex justify-between items-center bg-slate-900 px-1.5 py-1 rounded border border-slate-800 mb-1">
+
+                    {/* Score Row */}
+                    <div className="flex justify-between items-center bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 mb-0.5">
                         <div className="flex items-center gap-1">
                             <span className="text-[7px] text-slate-400 font-bold uppercase">FP</span>
-                            <div className={`text-sm font-mono font-black leading-none ${scoreColor}`}>{displayScore.toFixed(1)}</div>
+                            {finalScore.badges && finalScore.badges.length > 0 && (
+                                <div className="flex gap-0.5 ml-1">
+                                    {finalScore.badges.map((b, i) => (
+                                        <span key={i} className="text-[10px]">{b.icon}</span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="text-sm">
+                            <ScoreDisplay score={displayScore} bonus={totalBonus} colorBase={scoreColor} isRoller={false} />
                         </div>
                     </div>
-                    <div className="text-center mb-1 border-b border-slate-800/50 pb-0.5">
-                        <span className="text-[8px] text-slate-400 font-mono font-bold uppercase">{formatGameDate(finalScore.date)} | <span className="text-white">{finalScore.matchup || 'v OPP'}</span></span>
+
+                    {/* Date/Opponent Row (Updated Logic) */}
+                    <div className="text-center mb-0.5 border-b border-slate-800/50 pb-0.5">
+                        <span className="text-[8px] text-slate-400 font-mono font-bold uppercase">
+                            {formatGameDate(finalScore.date)} | <span className="text-white">{formatMatchup(finalScore.matchup)}</span>
+                        </span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1 mt-auto">
-                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">PTS</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.stats?.pts || 0}</div></div>
-                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">REB</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.stats?.reb || 0}</div></div>
-                        <div className="bg-slate-950 p-1 rounded text-center border border-slate-800"><div className="text-[6px] text-slate-500 font-bold">AST</div><div className="text-[10px] text-white font-mono font-bold">{finalScore.stats?.ast || 0}</div></div>
+
+                    {/* Stats Grid: Compressed Text Sizes to Fit */}
+                    <div className="grid grid-cols-3 gap-0.5 mt-0.5 h-full">
+                        <div className="bg-slate-950 p-0.5 rounded text-center border border-slate-800 flex flex-col justify-center">
+                            <div className="text-[5px] text-slate-500 font-bold">PTS</div>
+                            <div className="text-[8px] text-white font-mono font-bold">{finalScore.stats?.pts || 0}</div>
+                        </div>
+                        <div className="bg-slate-950 p-0.5 rounded text-center border border-slate-800 flex flex-col justify-center">
+                            <div className="text-[5px] text-slate-500 font-bold">REB</div>
+                            <div className="text-[8px] text-white font-mono font-bold">{finalScore.stats?.reb || 0}</div>
+                        </div>
+                        <div className="bg-slate-950 p-0.5 rounded text-center border border-slate-800 flex flex-col justify-center">
+                            <div className="text-[5px] text-slate-500 font-bold">AST</div>
+                            <div className="text-[8px] text-white font-mono font-bold">{finalScore.stats?.ast || 0}</div>
+                        </div>
+                        
+                        <div className="bg-slate-950 p-0.5 rounded text-center border border-slate-800 flex flex-col justify-center">
+                            <div className="text-[5px] text-slate-500 font-bold">STL</div>
+                            <div className="text-[8px] text-white font-mono font-bold">{finalScore.stats?.stl || 0}</div>
+                        </div>
+                        <div className="bg-slate-950 p-0.5 rounded text-center border border-slate-800 flex flex-col justify-center">
+                            <div className="text-[5px] text-slate-500 font-bold">BLK</div>
+                            <div className="text-[8px] text-white font-mono font-bold">{finalScore.stats?.blk || 0}</div>
+                        </div>
+                        <div className="bg-slate-950 p-0.5 rounded text-center border border-slate-800 flex flex-col justify-center">
+                            <div className="text-[5px] text-slate-500 font-bold">TOV</div>
+                            <div className="text-[8px] text-red-400 font-mono font-bold">{finalScore.stats?.tov || 0}</div>
+                        </div>
                     </div>
                 </>
             ) : (
