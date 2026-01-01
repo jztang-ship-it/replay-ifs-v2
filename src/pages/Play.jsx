@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import LiveCard from '../components/game/LiveCard';
-import JackpotBar from '../components/game/JackpotBar';
+// REMOVED: import JackpotBar from '../components/game/JackpotBar'; (Hardcoded below as requested)
 import { useBankroll } from '../context/BankrollContext';
 import { useRoster } from '../context/RosterContext';
 
-// --- NEW IMPORTS (Replaces dealer/mockAPI) ---
 import { dealRealHand, fetchPlayablePool } from '../engine/RealDealer';
 import { fetchRealGameLog } from '../data/real_nba_db';
 import { calculateScore } from '../utils/GameMath';
 
-// --- ANIMATION COMPONENTS (KEPT EXACTLY THE SAME) ---
+// --- ANIMATION COMPONENTS ---
 const ScoreRoller = ({ value, colorClass = '' }) => {
   const [display, setDisplay] = useState(0);
   const target = parseFloat(value) || 0;
@@ -40,7 +39,6 @@ const WinStamp = ({ label, color }) => (
 export default function Play() {
   const { bankroll, updateBankroll, addHistory } = useBankroll(); 
   
-  // We use local state for the hand (Context was causing issues)
   const [hand, setHand] = useState([null, null, null, null, null]);
   const [gamePhase, setGamePhase] = useState('START'); 
   const [heldIndices, setHeldIndices] = useState([]); 
@@ -57,7 +55,7 @@ export default function Play() {
   const betOpts = [1, 2, 5, 10]; 
   const getCost = (p) => parseFloat(p?.cost || 0);
 
-  // --- UPDATED DEAL HANDLER ---
+  // --- DEAL HANDLER ---
   const handleDeal = async () => {
     const betAmount = BASE_BET * betMultiplier;
     if(bankroll < betAmount) return alert("Insufficient Funds");
@@ -75,7 +73,6 @@ export default function Play() {
     setSequencerIndex(-1);
     setHand([null, null, null, null, null]);
 
-    // CALL REAL DEALER
     const newHand = await dealRealHand();
     
     if (newHand) {
@@ -99,12 +96,11 @@ export default function Play() {
       }
   };
 
-  // --- UPDATED DRAW HANDLER ---
+  // --- DRAW HANDLER ---
   const handleDraw = async () => {
     setGamePhase('DRAWING');
     setSequencerIndex(-1); 
     
-    // 1. Re-Deal Unheld Cards
     let currentHand = [...hand];
     const unheldIndices = [0, 1, 2, 3, 4].filter(i => !heldIndices.includes(i));
     
@@ -123,7 +119,6 @@ export default function Play() {
     }
     setHand(currentHand);
 
-    // 2. Fetch Real Scores
     const newResults = {};
     for (let i = 0; i < 5; i++) {
         const player = currentHand[i];
@@ -143,7 +138,7 @@ export default function Play() {
     setTimeout(() => setSequencerIndex(0), 500);
   };
 
-  // --- SEQUENCER (Animations) ---
+  // --- SEQUENCER ---
   useEffect(() => {
     if(gamePhase === 'DEALING') {
         if(sequencerIndex >= 0 && sequencerIndex < 5) setTimeout(() => setSequencerIndex(s => s+1), 400); 
@@ -158,7 +153,6 @@ export default function Play() {
             }, 400); 
             setTimeout(() => setSequencerIndex(s => s+1), 1000);
         } else if (sequencerIndex >= 5) {
-            // End Game Logic
             setTimeout(() => {
                 const total = Object.values(finalScores).reduce((a,b) => a+b.score, 0);
                 const betAmount = BASE_BET * betMultiplier;
@@ -195,64 +189,94 @@ export default function Play() {
 
   return (
     <PageContainer>
-      <div className="fixed inset-0 bg-[#050b14] overflow-hidden flex flex-col z-0">
+      {/* MAIN LAYOUT WRAPPER: Ensures strict vertical filling without scroll */}
+      <div className="fixed inset-0 bg-[#050b14] overflow-hidden flex flex-col z-0 pt-14">
         
-        {/* HEADER */}
-        <div className="flex justify-between px-4 py-2 bg-slate-900/80 border-b border-slate-800 backdrop-blur-md relative z-40 mt-16">
-             <div>
-                 <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Balance</div>
-                 <div className="text-xl font-mono font-black text-green-400 drop-shadow-md">${(bankroll || 0).toFixed(2)}</div>
+        {/* --- 1. NEW JACKPOT BAR (Hardcoded, Compact) --- */}
+        <div className="shrink-0 w-full bg-slate-900 border-b border-white/5 px-4 py-2 flex items-center justify-between relative z-40 shadow-xl h-14">
+             {/* Left: Amount */}
+             <div className="flex flex-col justify-center">
+                 <div className="text-[9px] text-yellow-500 font-bold uppercase tracking-widest leading-none mb-0.5 glow-sm">Grand Jackpot</div>
+                 <div className="text-2xl font-black text-white leading-none drop-shadow-[0_2px_4px_rgba(234,179,8,0.5)]">
+                    $12,453.88
+                 </div>
              </div>
-             <div className="flex flex-col items-center">
-                 <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Cap Space</div>
-                 <div className={`text-lg font-mono font-black ${visibleBudget < 0 ? 'text-red-500' : 'text-white'}`}>${visibleBudget.toFixed(1)}</div>
-             </div>
-             <div className="text-right">
-                 <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Target</div>
-                 <div className="text-xl font-mono font-black text-white drop-shadow-md">180<span className="text-xs text-slate-600">FP</span></div>
+             {/* Right: Rules */}
+             <div className="flex flex-col items-end justify-center">
+                 <div className="text-[9px] text-slate-400 font-bold">220+ FP = <span className="text-yellow-400 font-black">10%</span></div>
+                 <div className="text-[9px] text-slate-400 font-bold">250+ FP = <span className="text-yellow-400 font-black">100%</span></div>
              </div>
         </div>
 
-        {/* JACKPOT */}
-        <div className="shrink-0 py-2 relative z-30">
-            <JackpotBar addAmount={jackpotContribution} />
-        </div>
-
-        {/* GAME AREA */}
-        <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col items-center justify-center relative z-20 min-h-0">
+        {/* --- 2. MAIN CARD AREA (Takes all remaining space) --- */}
+        <div className="flex-1 w-full max-w-lg mx-auto flex flex-col items-center justify-center relative z-20 min-h-0 p-2">
+            
+            {/* WIN OVERLAY */}
             {gamePhase === 'END' && payoutResult && payoutResult.label !== "LOSS" && <WinStamp label={payoutResult.label} color={payoutResult.color} />}
-            <div className="w-full h-full flex flex-col justify-center gap-2 px-2 py-2">
-               <div className="flex justify-center gap-2 h-[30%]">
-                  <div className="w-[30%] h-full">{renderCard(0)}</div>
-                  <div className="w-[30%] h-full">{renderCard(1)}</div>
+            
+            {/* CARDS GRID: 2-1-2 Layout */}
+            <div className="w-full h-full flex flex-col justify-between">
+               {/* TOP ROW (2 cards) */}
+               <div className="flex justify-center gap-3 h-[32%]">
+                  <div className="w-[45%] h-full">{renderCard(0)}</div>
+                  <div className="w-[45%] h-full">{renderCard(1)}</div>
                </div>
-               <div className="flex justify-center h-[30%]">
-                  <div className="w-[30%] h-full">{renderCard(2)}</div>
+               
+               {/* MIDDLE ROW (1 card) */}
+               <div className="flex justify-center h-[32%]">
+                  <div className="w-[45%] h-full">{renderCard(2)}</div>
                </div>
-               <div className="flex justify-center gap-2 h-[30%]">
-                  <div className="w-[30%] h-full">{renderCard(3)}</div>
-                  <div className="w-[30%] h-full">{renderCard(4)}</div>
+               
+               {/* BOTTOM ROW (2 cards) */}
+               <div className="flex justify-center gap-3 h-[32%]">
+                  <div className="w-[45%] h-full">{renderCard(3)}</div>
+                  <div className="w-[45%] h-full">{renderCard(4)}</div>
                </div>
             </div>
         </div>
 
-        {/* CONTROLS */}
-        <div className="shrink-0 w-full bg-slate-950/90 border-t border-slate-900 p-2 pb-6 z-50">
-             <div className="max-w-xl mx-auto flex flex-col gap-2">
-                 <div className="flex items-center justify-between h-10 bg-slate-900 rounded-lg border border-slate-800 px-3">
-                    <div className="flex bg-slate-900 rounded-lg p-1 gap-1">
+        {/* --- 3. STATIC FOOTER (Budget/FP Top, Multipliers/Button Bottom) --- */}
+        <div className="shrink-0 w-full bg-slate-950/95 border-t border-slate-900 p-3 pb-6 z-50">
+             <div className="max-w-lg mx-auto flex flex-col gap-2">
+                 
+                 {/* LINE 1: Budget & Score */}
+                 <div className="flex justify-between items-end px-1">
+                     <div>
+                         <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Budget</div>
+                         <div className={`text-xl font-mono font-black ${visibleBudget < 0 ? 'text-red-500' : 'text-white'}`}>${visibleBudget.toFixed(1)}</div>
+                     </div>
+                     <div className="text-right">
+                         <div className="text-[9px] text-blue-500 font-bold uppercase tracking-widest mb-0.5">Total FP</div>
+                         <div className="text-2xl font-mono font-black text-white leading-none"><ScoreRoller value={runningScore} /></div>
+                     </div>
+                 </div>
+
+                 {/* LINE 2: Multipliers & Action Button */}
+                 <div className="flex items-center justify-between gap-3 pt-1">
+                    {/* Multipliers (Left) */}
+                    <div className="flex bg-slate-900 rounded-lg p-1 gap-1 border border-slate-800">
                         {betOpts.map(m => (
-                            <button key={m} onClick={()=>setBetMultiplier(m)} disabled={gamePhase !== 'START' && gamePhase !== 'END' && gamePhase !== 'DEALT'} className={`px-2 rounded text-[9px] font-bold transition-all ${betMultiplier === m ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{m}x</button>
+                            <button 
+                                key={m} 
+                                onClick={()=>setBetMultiplier(m)} 
+                                disabled={gamePhase !== 'START' && gamePhase !== 'END' && gamePhase !== 'DEALT'} 
+                                className={`px-3 py-2 rounded text-[11px] font-bold transition-all ${betMultiplier === m ? 'bg-blue-600 text-white shadow-lg scale-105' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                            >
+                                {m}x
+                            </button>
                         ))}
                     </div>
-                    <div className="text-right">
-                         <span className="text-[7px] text-blue-400 font-black uppercase tracking-widest mr-2">TOTAL FP</span>
-                         <span className="text-xl font-mono font-black text-white leading-none"><ScoreRoller value={runningScore} /></span>
-                    </div>
+
+                    {/* Action Button (Right) */}
+                    <button 
+                        onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleDeal:handleDeal)} 
+                        disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} 
+                        className={`flex-1 h-12 rounded-xl font-black text-lg uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center max-w-[140px] ${gamePhase==='DEALT'?'bg-green-600 text-white hover:bg-green-500':'bg-blue-600 text-white hover:bg-blue-500'}`}
+                    >
+                        {gamePhase==='DEALT'?'DRAW':(gamePhase==='DEALING'?'...':(gamePhase==='REVEALING'?'...': 'DEAL'))}
+                    </button>
                  </div>
-                 <button onClick={gamePhase==='DEALT'?handleDraw:(gamePhase==='END'?handleDeal:handleDeal)} disabled={gamePhase==='DEALING'||gamePhase==='DRAWING'||gamePhase==='REVEALING'} className={`w-full py-4 rounded-xl font-black text-xl uppercase tracking-widest shadow-xl transition-all active:scale-95 ${gamePhase==='DEALT'?'bg-green-600 text-white':'bg-blue-600 text-white'}`}>
-                    {gamePhase==='DEALT'?'DRAW & SCORE':(gamePhase==='DEALING'?'DEALING...':(gamePhase==='REVEALING'?'SCORING...':`DEAL • $${(BASE_BET * betMultiplier)}`))}
-                 </button>
+
              </div>
         </div>
 
