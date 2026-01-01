@@ -38,7 +38,6 @@ const ScoreRoller = ({ value, colorClass = '' }) => {
   return <span className={colorClass}>{display.toFixed(1)}</span>;
 };
 
-// UPDATED: Compact Win Stamp for Footer
 const FooterWinStamp = ({ label, color }) => (
   <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none">
       <div className={`transform -rotate-6 border-2 ${color ? color.replace('text-', 'border-') : 'border-white'} rounded-lg px-3 py-1 bg-black/90 backdrop-blur-sm shadow-[0_0_15px_rgba(0,0,0,0.5)] animate-bounce-short whitespace-nowrap`}>
@@ -70,9 +69,7 @@ const LegendModal = ({ onClose }) => {
                     {tab === 'ODDS' ? (
                         <div>
                             <TierRow score="250+" name="JACKPOT" payout="100%" color="text-fuchsia-400" bg="bg-fuchsia-500/10 border-fuchsia-500/20" />
-                            {/* UPDATED: Renamed to MINI JACKPOT */}
                             <TierRow score="225+" name="MINI JACKPOT" payout="10%" color="text-pink-400" bg="bg-pink-500/10 border-pink-500/20" />
-                            
                             <TierRow score="215+" name="DYNASTY" payout="30x" color="text-purple-400" bg="bg-purple-500/10 border-purple-500/20" />
                             <TierRow score="195+" name="MVP" payout="10x" color="text-yellow-400" bg="bg-yellow-500/10 border-yellow-500/20" />
                             <TierRow score="175+" name="ALL-STAR" payout="5x" color="text-orange-400" bg="bg-orange-500/10 border-orange-500/20" />
@@ -152,6 +149,14 @@ export default function Play() {
   const betOpts = [1, 2, 5, 10]; 
   const getCost = (p) => parseFloat(p?.cost || 0);
 
+  // --- HELPER FOR BUDGET DISPLAY ---
+  // Fixes floating point errors (e.g. -0.0000000001 becoming -0.0 in red)
+  const formatBudget = (val) => {
+    if (Math.abs(val) < 0.05) return "0.0"; // Treat close-to-zero as zero
+    return val.toFixed(1);
+  };
+  const isOverBudget = visibleBudget < -0.05; // Only show red if significantly negative
+
   const handleDeal = async () => {
     const betAmount = BASE_BET * betMultiplier;
     if(bankroll < betAmount) return alert("Insufficient Funds");
@@ -169,7 +174,7 @@ export default function Play() {
     const newHand = await dealRealHand();
     if (newHand) {
         setHand(newHand);
-        setTimeout(() => setSequencerIndex(0), 200); 
+        setTimeout(() => setSequencerIndex(0), 100); 
     } else {
         alert("Market Closed (Database Empty). Refunded.");
         updateBankroll(betAmount);
@@ -197,28 +202,39 @@ export default function Play() {
     let newHand = await replaceLineup(hand, heldIndices);
     if (!newHand) { console.error("Dealer failed. Reverting."); newHand = [...hand]; }
     setHand(newHand);
-    const newResults = {};
-    for (let i = 0; i < 5; i++) {
-        const player = newHand[i];
-        if (!player) continue;
+
+    // --- UPDATED: PARALLEL FETCHING FOR SPEED ---
+    // Instead of waiting one-by-one, we fetch all 5 at once
+    const promises = newHand.map(async (player, i) => {
+        if (!player) return null;
         const log = await fetchRealGameLog(player.id);
         const math = calculateScore(log);
-        newResults[`${player.id}-${i}`] = { 
-            score: math.score, 
-            stats: math.rawStats, 
-            badges: math.bonuses,
-            date: log.game_date,
-            matchup: log.matchup || 'v OPP'
+        return { 
+            key: `${player.id}-${i}`, 
+            data: {
+                score: math.score, 
+                stats: math.rawStats, 
+                badges: math.bonuses,
+                date: log.game_date,
+                matchup: log.matchup || 'v OPP'
+            }
         };
-    }
+    });
+
+    const results = await Promise.all(promises);
+    const newResults = {};
+    results.forEach(res => {
+        if (res) newResults[res.key] = res.data;
+    });
+
     setFinalScores(newResults);
     setGamePhase('REVEALING');
-    setTimeout(() => setSequencerIndex(0), 200);
+    setTimeout(() => setSequencerIndex(0), 50); // Fast start
   };
 
   useEffect(() => {
     if(gamePhase === 'DEALING') {
-        if(sequencerIndex >= 0 && sequencerIndex < 5) setTimeout(() => setSequencerIndex(s => s+1), 200);
+        if(sequencerIndex >= 0 && sequencerIndex < 5) setTimeout(() => setSequencerIndex(s => s+1), 100);
         else if (sequencerIndex >= 5) setTimeout(() => setGamePhase('DEALT'), 200);
     }
     if(gamePhase === 'REVEALING') {
@@ -226,6 +242,7 @@ export default function Play() {
             const card = hand[sequencerIndex];
             const key = `${card.id}-${sequencerIndex}`;
             if (!heldIndices.includes(sequencerIndex)) { setVisibleBudget(prev => prev - getCost(card)); }
+            
             setTimeout(() => {
                 if(finalScores[key]) {
                     setRunningScore(s => s + finalScores[key].score);
@@ -235,8 +252,11 @@ export default function Play() {
                         setActiveBadges(prev => [...prev, ...finalScores[key].badges]);
                     }
                 }
-            }, 200);
-            setTimeout(() => setSequencerIndex(s => s+1), 600);
+            }, 50);
+
+            // Fast Reveal Sequence (200ms)
+            setTimeout(() => setSequencerIndex(s => s+1), 200);
+
         } else if (sequencerIndex >= 5) {
             setTimeout(() => {
                 const total = Object.values(finalScores).reduce((a,b) => a+b.score, 0);
@@ -256,7 +276,7 @@ export default function Play() {
                 setPayoutResult({label:lbl, color:clr});
                 if (addHistory) addHistory({ result: lbl, score: total, payout: win, date: new Date().toISOString() });
                 setGamePhase('END');
-            }, 400);
+            }, 300); 
         }
     }
   }, [gamePhase, sequencerIndex]);
@@ -282,7 +302,6 @@ export default function Play() {
         <div className="shrink-0 w-full bg-slate-900 border-b border-white/5 px-4 py-2 flex items-center relative z-40 shadow-xl h-16">
              <div className="flex-1"></div>
              <div className="flex flex-col items-center justify-center">
-                 {/* UPDATED: Title removed (250+) */}
                  <div className="text-[9px] text-purple-500 font-bold uppercase tracking-widest leading-none mb-0.5 glow-sm">JACKPOT</div>
                  <div className="text-2xl font-black text-white leading-none drop-shadow-[0_2px_4px_rgba(168,85,247,0.5)]">$12,453.88</div>
              </div>
@@ -308,10 +327,16 @@ export default function Play() {
                      {/* BUDGET LEFT */}
                      <div>
                          <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Budget</div>
-                         <div className="flex items-baseline gap-1 text-white font-mono font-black"><span className="text-xl">$15.0</span><span className={`text-lg ${visibleBudget < 0 ? 'text-red-500' : 'text-slate-500'}`}>({visibleBudget.toFixed(1)})</span></div>
+                         <div className="flex items-baseline gap-1 text-white font-mono font-black">
+                            <span className="text-xl">$15.0</span>
+                            {/* UPDATED BUDGET LOGIC */}
+                            <span className={`text-lg ${isOverBudget ? 'text-red-500' : 'text-slate-500'}`}>
+                                ({formatBudget(visibleBudget)})
+                            </span>
+                         </div>
                      </div>
                      
-                     {/* UPDATED: WIN SIGN MOVED HERE (CENTERED) */}
+                     {/* WIN SIGN (CENTERED) */}
                      {gamePhase === 'END' && payoutResult && payoutResult.label !== "LOSS" && (
                          <FooterWinStamp label={payoutResult.label} color={payoutResult.color} />
                      )}

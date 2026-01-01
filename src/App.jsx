@@ -1,28 +1,39 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import HomePage from './pages/HomePage';
+
+// 1. IMPORT NAV & PAGES
+import TopNav from './components/layout/TopNav';
 import Play from './pages/Play';
-import Profile from './pages/Profile';
-import Pulse from './pages/Pulse';     // Links to your EXISTING file
-import Collect from './pages/Collect'; // Links to your EXISTING file
+import AnimationDemo from './pages/AnimationDemo'; // <--- Your new demo page
+
+// 2. IMPORT CONTEXT PROVIDERS (This is what was missing!)
+// These give your app access to the "Bankroll" and "Player Data"
 import { BankrollProvider } from './context/BankrollContext';
-import { RosterProvider } from './context/RosterContext';
+import { RosterProvider } from './context/RosterContext'; 
 
 function App() {
   return (
-    <BankrollProvider>
-      <RosterProvider>
+    // 3. WRAP THE APP IN PROVIDERS
+    <RosterProvider>
+      <BankrollProvider>
         <Router>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/play" element={<Play />} />
-            <Route path="/pulse" element={<Pulse />} />
-            <Route path="/collect" element={<Collect />} />
-            <Route path="/profile" element={<Profile />} />
-          </Routes>
+            <TopNav />
+            <Routes>
+                {/* Main Game Page */}
+                <Route path="/" element={<Play />} />
+                <Route path="/play" element={<Play />} />
+                
+                {/* Animation Demo Page */}
+                <Route path="/demo" element={<AnimationDemo />} />
+                
+                {/* Placeholders for future tabs */}
+                <Route path="/pulse" element={<div className="pt-20 text-white text-center">PULSE COMING SOON</div>} />
+                <Route path="/collect" element={<div className="pt-20 text-white text-center">COLLECT COMING SOON</div>} />
+                <Route path="/profile" element={<div className="pt-20 text-white text-center">PROFILE COMING SOON</div>} />
+            </Routes>
         </Router>
-      </RosterProvider>
-    </BankrollProvider>
+      </BankrollProvider>
+    </RosterProvider>
   );
 }
 
