@@ -4,41 +4,18 @@ import LiveCard from '../components/game/LiveCard';
 import { useBankroll } from '../context/BankrollContext';
 import { useRoster } from '../context/RosterContext';
 
-// --- THE FIX: IMPORT THE REAL DEALER ---
 import { dealRealHand, replaceLineup, fetchPlayablePool } from '../engine/RealDealer'; 
 import { fetchRealGameLog } from '../data/real_nba_db';
 import { calculateScore } from '../utils/GameMath';
 
-// --- 📊 IMPROVED SYSTEM CHECK (View in Browser Console) ---
+// --- 📊 SYSTEM CHECK ---
 const SystemCheck = () => {
     useEffect(() => {
         const checkDB = async () => {
             console.clear(); 
-            console.log("%c--- 📊 DATABASE AUDIT ---", "color: cyan; font-weight: bold; font-size: 14px;");
-            
             const pool = await fetchPlayablePool();
-            
-            if (!pool || pool.length === 0) {
-                console.warn("❌ [CRITICAL] POOL IS EMPTY! check src/data/real_nba_db.js");
-                return;
-            }
-
-            // COUNT TIERS
-            let orange = 0, purple = 0, blue = 0, grey = 0;
-            pool.forEach(p => {
-                const cost = parseFloat(p.cost);
-                if (cost >= 5.0) orange++;
-                else if (cost >= 4.0) purple++;
-                else if (cost >= 2.5) blue++;
-                else grey++;
-            });
-
-            console.log(`✅ Total Players Loaded: ${pool.length}`);
-            console.log(`%c🟠 Orange Tier ($5.0+): ${orange} players`, "color: orange; font-weight: bold");
-            console.log(`%c🟣 Purple Tier ($4.0+): ${purple} players`, "color: #c084fc; font-weight: bold");
-            console.log(`%c🔵 Blue Tier   ($2.5+): ${blue} players`, "color: #60a5fa; font-weight: bold");
-            console.log(`⚪ Grey Tier   (<$2.5): ${grey} players`);
-            console.log("-------------------------------------");
+            if (!pool || pool.length === 0) console.warn("❌ [CRITICAL] POOL IS EMPTY!");
+            else console.log(`✅ Loaded ${pool.length} Active Players`);
         };
         checkDB();
     }, []);
@@ -50,7 +27,7 @@ const ScoreRoller = ({ value, colorClass = '' }) => {
   const [display, setDisplay] = useState(0);
   const target = parseFloat(value) || 0;
   useEffect(() => {
-    let start = display; let startTime; const duration = 300; // FASTER
+    let start = display; let startTime; const duration = 300; 
     const animate = (time) => {
       if (!startTime) startTime = time;
       const progress = Math.min((time - startTime) / duration, 1);
@@ -72,7 +49,7 @@ const WinStamp = ({ label, color }) => (
   </div>
 );
 
-// --- LEGEND MODAL ---
+// --- LEGEND MODAL (Updated with Verified Lines) ---
 const LegendModal = ({ onClose }) => {
     const [tab, setTab] = useState('ODDS');
     return (
@@ -86,58 +63,45 @@ const LegendModal = ({ onClose }) => {
                 <div className="p-4 overflow-y-auto">
                     {tab === 'ODDS' ? (
                         <div className="space-y-3">
+                            <div className="flex justify-between items-center p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                                <span className="font-bold text-purple-400">215+</span>
+                                <span className="font-black text-white text-lg">30x <span className="text-xs font-normal text-slate-400">JACKPOT</span></span>
+                            </div>
                             <div className="flex justify-between items-center p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                                <span className="font-bold text-yellow-500">220+</span>
-                                <span className="font-black text-white text-lg">10x <span className="text-xs font-normal text-slate-400">Jackpot</span></span>
+                                <span className="font-bold text-yellow-500">195+</span>
+                                <span className="font-black text-white text-lg">10x</span>
+                            </div>
+                            <div className="flex justify-between items-center p-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                                <span className="font-bold text-orange-500">175+</span>
+                                <span className="font-black text-white text-lg">5x</span>
                             </div>
                             <div className="flex justify-between items-center p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                <span className="font-bold text-green-500">180+</span>
-                                <span className="font-black text-white text-lg">3x</span>
+                                <span className="font-bold text-green-500">155+</span>
+                                <span className="font-black text-white text-lg">1.5x</span>
                             </div>
                             <div className="flex justify-between items-center p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                <span className="font-bold text-blue-500">150+</span>
-                                <span className="font-black text-white text-lg">1x</span>
-                            </div>
-                            <div className="mt-4 text-[10px] text-slate-500 text-center">
-                                * Payouts include your original bet.
+                                <span className="font-bold text-blue-500">130+</span>
+                                <span className="font-black text-white text-lg">0.5x <span className="text-xs font-normal text-slate-400">(Safety)</span></span>
                             </div>
                         </div>
                     ) : (
                         <div className="space-y-4 text-xs">
-                            <div>
-                                <h3 className="text-white font-bold mb-1 uppercase tracking-wider">Base Stats</h3>
-                                <div className="grid grid-cols-2 gap-2 text-slate-400">
-                                    <div>PTS: 1.0</div>
-                                    <div>REB: 1.25</div>
-                                    <div>AST: 1.5</div>
-                                    <div>STL: 2.0</div>
-                                    <div>BLK: 2.0</div>
-                                    <div>TOV: -0.5</div>
-                                </div>
-                            </div>
-                            <div>
-                                <h3 className="text-white font-bold mb-1 uppercase tracking-wider">Bonuses</h3>
-                                <div className="space-y-1 text-slate-400 max-h-48 overflow-y-auto pr-2">
-                                    <div className="flex justify-between"><span>🏀 Bucket (30+ Pts)</span><span className="text-white">+2</span></div>
-                                    <div className="flex justify-between"><span>🔥 Fire (40+ Pts)</span><span className="text-white">+5</span></div>
-                                    <div className="flex justify-between"><span>⚡ God Mode (50+ Pts)</span><span className="text-white">+10</span></div>
-                                    <div className="border-b border-slate-800 my-1"></div>
-                                    <div className="flex justify-between"><span>🧲 Glass (12+ Reb)</span><span className="text-white">+3</span></div>
-                                    <div className="flex justify-between"><span>🦍 Beast (15+ Reb)</span><span className="text-white">+5</span></div>
-                                    <div className="border-b border-slate-800 my-1"></div>
-                                    <div className="flex justify-between"><span>🧠 Dime (12+ Ast)</span><span className="text-white">+3</span></div>
-                                    <div className="flex justify-between"><span>🪄 Wizard (15+ Ast)</span><span className="text-white">+5</span></div>
-                                    <div className="border-b border-slate-800 my-1"></div>
-                                    <div className="flex justify-between"><span>🧤 Thief (5+ Stl)</span><span className="text-white">+4</span></div>
-                                    <div className="flex justify-between"><span>🚫 Swat (5+ Blk)</span><span className="text-white">+4</span></div>
-                                    <div className="flex justify-between"><span>🔒 Lock (6+ Stocks)</span><span className="text-white">+4</span></div>
-                                    <div className="border-b border-slate-800 my-1"></div>
-                                    <div className="flex justify-between"><span>✌️ Double-Double</span><span className="text-white">+2</span></div>
+                           <div className="grid grid-cols-2 gap-2 text-slate-400">
+                                <div>PTS: 1.0</div>
+                                <div>REB: 1.25</div>
+                                <div>AST: 1.5</div>
+                                <div>STL: 2.0</div>
+                                <div>BLK: 2.0</div>
+                                <div>TOV: -0.5</div>
+                           </div>
+                           <div className="border-t border-slate-800 pt-2">
+                                <h3 className="text-white font-bold mb-1 uppercase">Bonuses</h3>
+                                <div className="space-y-1 text-slate-400">
                                     <div className="flex justify-between"><span>👑 Triple-Double</span><span className="text-white">+8</span></div>
-                                    <div className="flex justify-between"><span>🦕 Quad-Double</span><span className="text-white">+50</span></div>
-                                    <div className="flex justify-between"><span>🖐️ 5x5 Club</span><span className="text-white">+15</span></div>
+                                    <div className="flex justify-between"><span>⚡ 50+ Pts</span><span className="text-white">+10</span></div>
+                                    <div className="flex justify-between"><span>🔥 40+ Pts</span><span className="text-white">+5</span></div>
                                 </div>
-                            </div>
+                           </div>
                         </div>
                     )}
                 </div>
@@ -167,7 +131,7 @@ export default function Play() {
   const betOpts = [1, 2, 5, 10]; 
   const getCost = (p) => parseFloat(p?.cost || 0);
 
-  // --- DEAL HANDLER (SPEEDED UP) ---
+  // --- DEAL HANDLER ---
   const handleDeal = async () => {
     const betAmount = BASE_BET * betMultiplier;
     if(bankroll < betAmount) return alert("Insufficient Funds");
@@ -209,29 +173,26 @@ export default function Play() {
       }
   };
 
-  // --- DRAW HANDLER (THE FIX) ---
+  // --- DRAW HANDLER ---
   const handleDraw = async () => {
     setGamePhase('DRAWING');
     setSequencerIndex(-1); 
     setActiveBadges([]); 
     
-    // 1. IDENTIFY HELD CARDS
-    // Convert indices to actual player objects
+    // 1. Convert indices to objects for the dealer
     const heldCards = heldIndices.map(i => hand[i]);
     
-    // 2. GET REPLACEMENT HAND FROM DEALER
-    // If heldCards is empty, dealer treats it as a Zero-Hold Replacement (New Hand Logic).
+    // 2. Dealer fills the gaps using STRICT logic
     let newHand = await replaceLineup(hand, heldCards);
 
-    // Fallback if dealer fails (rare)
     if (!newHand) {
-        console.error("Dealer failed to generate hand. Keeping current hand.");
+        console.error("Dealer failed. Reverting.");
         newHand = [...hand]; 
     }
     
     setHand(newHand);
 
-    // 3. FETCH SCORES & STATS
+    // 3. Compute Scores
     const newResults = {};
     for (let i = 0; i < 5; i++) {
         const player = newHand[i];
@@ -253,7 +214,7 @@ export default function Play() {
     setTimeout(() => setSequencerIndex(0), 200);
   };
 
-  // --- SEQUENCER (SPEEDED UP) ---
+  // --- SEQUENCER (Updated Payout Logic) ---
   useEffect(() => {
     if(gamePhase === 'DEALING') {
         if(sequencerIndex >= 0 && sequencerIndex < 5) setTimeout(() => setSequencerIndex(s => s+1), 200);
@@ -268,7 +229,6 @@ export default function Play() {
                 setVisibleBudget(prev => prev - getCost(card));
             }
 
-            // Calculation Update
             setTimeout(() => {
                 if(finalScores[key]) {
                     setRunningScore(s => s + finalScores[key].score);
@@ -278,17 +238,36 @@ export default function Play() {
                 }
             }, 200);
 
-            // Next Card Delay
             setTimeout(() => setSequencerIndex(s => s+1), 600);
         } else if (sequencerIndex >= 5) {
             setTimeout(() => {
                 const total = Object.values(finalScores).reduce((a,b) => a+b.score, 0);
                 const betAmount = BASE_BET * betMultiplier;
+                
                 let lbl = "LOSS"; let clr = "text-slate-500"; let win = 0;
                 
-                if (total >= 220) { win = betAmount*10; lbl="JACKPOT"; clr="text-yellow-400"; }
-                else if (total >= 180) { win = betAmount*3; lbl="BIG WIN"; clr="text-green-400"; }
-                else if (total >= 150) { win = betAmount*1; lbl="WINNER"; clr="text-blue-400"; }
+                // --- VERIFIED PAYOUT LINES ---
+                if (total >= 215) { 
+                    win = betAmount * 30; 
+                    lbl = "JACKPOT"; 
+                    clr = "text-purple-400"; 
+                } else if (total >= 195) { 
+                    win = betAmount * 10; 
+                    lbl = "MEGA WIN"; 
+                    clr = "text-yellow-400"; 
+                } else if (total >= 175) { 
+                    win = betAmount * 5; 
+                    lbl = "BIG WIN"; 
+                    clr = "text-orange-400"; 
+                } else if (total >= 155) { 
+                    win = betAmount * 1.5; 
+                    lbl = "WINNER"; 
+                    clr = "text-green-400"; 
+                } else if (total >= 130) { 
+                    win = betAmount * 0.5; 
+                    lbl = "SAFETY"; 
+                    clr = "text-blue-400"; 
+                }
                 
                 if (win > 0) updateBankroll(win);
                 setPayoutResult({label:lbl, color:clr});
@@ -322,22 +301,22 @@ export default function Play() {
       
       <div className="fixed inset-0 bg-[#050b14] overflow-hidden flex flex-col z-0 pt-14">
         
-        {/* --- 1. JACKPOT BAR --- */}
+        {/* --- JACKPOT BAR --- */}
         <div className="shrink-0 w-full bg-slate-900 border-b border-white/5 px-4 py-2 flex items-center relative z-40 shadow-xl h-16">
              <div className="flex-1"></div>
              <div className="flex flex-col items-center justify-center">
-                 <div className="text-[9px] text-yellow-500 font-bold uppercase tracking-widest leading-none mb-0.5 glow-sm">Grand Jackpot</div>
-                 <div className="text-2xl font-black text-white leading-none drop-shadow-[0_2px_4px_rgba(234,179,8,0.5)]">
+                 <div className="text-[9px] text-purple-500 font-bold uppercase tracking-widest leading-none mb-0.5 glow-sm">Grand Jackpot (30x)</div>
+                 <div className="text-2xl font-black text-white leading-none drop-shadow-[0_2px_4px_rgba(168,85,247,0.5)]">
                     $12,453.88
                  </div>
              </div>
              <div className="flex-1 flex flex-col items-end justify-center gap-0.5">
-                 <div className="text-[8px] text-slate-400 font-bold">220+ = <span className="text-yellow-400 font-black">10%</span></div>
-                 <div className="text-[8px] text-slate-400 font-bold">250+ = <span className="text-yellow-400 font-black">100%</span></div>
+                 <div className="text-[8px] text-slate-400 font-bold">195+ = <span className="text-yellow-400 font-black">10x</span></div>
+                 <div className="text-[8px] text-slate-400 font-bold">215+ = <span className="text-purple-400 font-black">30x</span></div>
              </div>
         </div>
 
-        {/* --- 2. MAIN CARD AREA --- */}
+        {/* --- MAIN CARD AREA --- */}
         <div className="flex-1 w-full max-w-lg mx-auto flex flex-col items-center justify-center relative z-20 min-h-0 p-2">
             {gamePhase === 'END' && payoutResult && payoutResult.label !== "LOSS" && <WinStamp label={payoutResult.label} color={payoutResult.color} />}
             <div className="w-full h-full flex flex-col justify-between">
@@ -355,7 +334,7 @@ export default function Play() {
             </div>
         </div>
 
-        {/* --- 3. FOOTER --- */}
+        {/* --- FOOTER --- */}
         <div className="shrink-0 w-full bg-slate-950/95 border-t border-slate-900 p-3 pb-6 z-50">
              <div className="max-w-lg mx-auto flex flex-col gap-2">
                  <div className="flex justify-between items-end px-1">
