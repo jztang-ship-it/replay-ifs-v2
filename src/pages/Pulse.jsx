@@ -33,7 +33,6 @@ export default function Pulse() {
 
   return (
     <PageContainer>
-      {/* LAYOUT FIX: Used h-full + overflow-y-auto instead of min-h-screen */}
       <div className="flex flex-col h-full w-full max-w-xl mx-auto px-4 pt-6 pb-24 overflow-y-auto custom-scrollbar">
         
         {/* HEADER */}

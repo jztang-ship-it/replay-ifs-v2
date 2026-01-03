@@ -7,7 +7,7 @@ export default function Profile() {
 
   return (
     <PageContainer>
-      <div className="flex flex-col items-center p-8 max-w-2xl mx-auto w-full">
+      <div className="flex flex-col items-center p-8 max-w-2xl mx-auto w-full overflow-y-auto pb-32">
         {/* HEADER */}
         <div className="flex flex-col items-center mb-8">
             <div className="w-24 h-24 rounded-full bg-slate-800 border-4 border-slate-700 flex items-center justify-center mb-4 shadow-2xl">
@@ -15,7 +15,7 @@ export default function Profile() {
             </div>
             <h1 className="text-3xl font-black italic text-white uppercase tracking-tighter">My Profile</h1>
             <div className="bg-slate-900 px-4 py-1 rounded-full border border-slate-800 mt-2">
-                <span className="text-xs font-mono text-slate-400">ID: USER-8823</span>
+                <span className="text-xs font-mono text-slate-400">ID: USER-STABLE</span>
             </div>
         </div>
 
@@ -32,23 +32,23 @@ export default function Profile() {
         </div>
 
         {/* RECENT HISTORY */}
-        <div className="w-full bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
-            <div className="bg-slate-900 p-3 border-b border-slate-800">
-                <h3 className="text-xs font-black text-white uppercase">Recent Games</h3>
+        <div className="w-full bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-2xl">
+            <div className="bg-slate-900 p-3 border-b border-slate-800 flex justify-between">
+                <h3 className="text-xs font-black text-white uppercase italic">Game History</h3>
+                <span className="text-[10px] text-slate-500 uppercase">{history.length} Hands</span>
             </div>
-            <div className="divide-y divide-slate-800 max-h-60 overflow-y-auto custom-scrollbar">
+            <div className="divide-y divide-slate-800 max-h-96 overflow-y-auto custom-scrollbar">
                 {history.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-600 font-mono">No games played yet.</div>
+                    <div className="p-12 text-center text-xs text-slate-600 font-mono italic">No hands played yet.</div>
                 ) : (
                     history.slice().reverse().map((game, i) => (
-                        <div key={i} className="flex justify-between items-center p-3 text-xs">
+                        <div key={i} className="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                             <div className="flex flex-col">
-                                <span className={`font-bold ${game.result === 'WIN' ? 'text-green-400' : 'text-slate-400'}`}>{game.result}</span>
-                                <span className="text-[10px] text-slate-600 font-mono">{new Date(game.date).toLocaleTimeString()}</span>
+                                <span className={`font-black text-xs uppercase ${game.result === 'LOSS' ? 'text-slate-500' : 'text-green-400'}`}>{game.result}</span>
+                                <span className="text-[10px] text-slate-600 font-mono">{new Date(game.date).toLocaleDateString()}</span>
                             </div>
                             <div className="text-right">
-                                <div className="text-white font-mono font-bold">{game.score.toFixed(1)} FP</div>
-                                <div className="text-[10px] text-slate-500">{game.badges} Badges</div>
+                                <div className="text-sm font-black text-white font-mono">{game.score.toFixed(1)} FP</div>
                             </div>
                         </div>
                     ))

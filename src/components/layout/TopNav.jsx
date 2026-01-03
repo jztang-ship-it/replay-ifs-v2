@@ -45,7 +45,6 @@ export default function TopNav() {
   const [imgError, setImgError] = useState(false);
 
   // FUTURE: This is where we will hook up the user's real uploaded picture
-  // For now, it is null so it shows the "Blue Blob" default
   const userProfilePic = null; 
 
   const getTabClass = (path) => {
@@ -87,23 +86,20 @@ export default function TopNav() {
             <button onClick={() => navigate('/collect')} className={getTabClass('/collect')}>COLLECT</button>
         </div>
 
-        {/* 3. RIGHT: PROFILE (Vertical "Ankle" Stack) */}
+        {/* 3. RIGHT: PROFILE */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20">
             <button 
                 onClick={() => navigate('/profile')}
                 className="flex flex-col items-center justify-center gap-0.5 p-1 rounded-lg hover:bg-slate-900 transition-all active:scale-95 cursor-pointer group"
             >
-                {/* AVATAR ON TOP */}
                 <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shadow-inner ring-1 ring-black/50 group-hover:border-slate-500 transition-colors">
                     {userProfilePic ? (
                         <img src={userProfilePic} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
-                        // The "Blue Blob" Placeholder
                         <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600"></div>
                     )}
                 </div>
 
-                {/* BALANCE AT THE ANKLE (ANIMATED) */}
                 <span className="text-[9px] md:text-[10px] text-green-400 font-mono font-black leading-none bg-slate-950/80 px-1 rounded-sm">
                     <BalanceRoller value={typeof bankroll === 'number' ? bankroll : 0} />
                 </span>

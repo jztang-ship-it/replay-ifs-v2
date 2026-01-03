@@ -81,21 +81,6 @@ const SlotMachineReward = ({ onComplete, isClaimed, multiplier, lastWinAmount })
      );
   }
 
-  if (finalWin) {
-    return (
-      <div className="bg-gradient-to-b from-yellow-500/20 to-orange-600/20 border border-yellow-500 rounded-xl p-6 text-center animate-bounce-short shadow-[0_0_40px_rgba(234,179,8,0.3)]">
-        <div className="text-xs font-black text-yellow-500 uppercase tracking-widest mb-1">JACKPOT HIT!</div>
-        <div className="flex items-baseline justify-center gap-2 mb-2">
-           <span className="text-4xl font-black text-white drop-shadow-md">{displayValue}</span>
-           <span className="text-sm font-bold text-yellow-400">x {multiplier.toFixed(1)}</span>
-        </div>
-        <div className="text-2xl font-black text-white bg-black/40 rounded-lg py-2 border border-white/10">
-          = ${finalWin.toLocaleString()}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-1 relative overflow-hidden group">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50"></div>
@@ -111,7 +96,7 @@ const SlotMachineReward = ({ onComplete, isClaimed, multiplier, lastWinAmount })
         </div>
         <button 
           onClick={handleSpin}
-          disabled={isSpinning}
+          disabled={isSpinning || isClaimed}
           className={`w-full py-3 rounded-lg font-black uppercase tracking-[0.2em] transition-all shadow-lg ${
             isSpinning 
               ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
@@ -170,8 +155,7 @@ export default function Collect() {
 
   const activeTasks = useMemo(() => {
     const groups = {};
-    allMissions.sort((a, b) => a.step - b.step);
-    allMissions.forEach(task => {
+    [...allMissions].sort((a, b) => a.step - b.step).forEach(task => {
       const isClaimed = safeClaimed.includes(task.id);
       if (!groups[task.group] && !isClaimed) {
         groups[task.group] = task;
